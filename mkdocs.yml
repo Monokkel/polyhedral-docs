@@ -79,4 +79,8 @@ nav:
           - plugins/commandsystem/index.md
           - Guides: plugins/commandsystem/guides.md
           - API Reference: plugins/commandsystem/reference.md
+      - Evaluators:
+          - plugins/evaluators/index.md
+          - Guides: plugins/evaluators/guides.md
+          - API Reference: plugins/evaluators/reference.md
   - Community Guides: community/index.md

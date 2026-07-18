@@ -151,6 +151,7 @@ data described in [tagged-data.md](tagged-data.md). And the read-only rule above
 is the other side of the write path in
 [commands-and-undo.md](commands-and-undo.md).
 
-<!-- pluginlink: evaluators-reference -->
-For the full list of built-in magnitude and condition calcs, their parameters,
-and the debug tooling, see the Evaluators plugin reference.
+For the full list of built-in [magnitude](../plugins/evaluators/reference.md#magnitudes)
+and [condition](../plugins/evaluators/reference.md#conditions) calcs, their parameters,
+and the [breakdown tooling](../plugins/evaluators/reference.md#collector-breakdown), see
+the [Evaluators plugin reference](../plugins/evaluators/reference.md).
