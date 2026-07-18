@@ -54,6 +54,89 @@ markdown_extensions:
 
 plugins:
   - search
+  - llmstxt:
+      markdown_description: >-
+        Consumer documentation for the Polyhedral Game Framework, a suite of Unreal
+        Engine 5 plugins for building turn-based, board-game-like games (deckbuilders,
+        tactics, CRPGs). It provides struct-based game entities with strong
+        undo/redo/replay, tagged data and schemas, composable evaluators, a
+        gameplay-event and reaction system, grids and occupancy, turn scheduling,
+        presentation tokens and cues, and a data-driven ability rules-engine. Pages are
+        written for game developers and show Blueprint and C++ usage side by side.
+      full_output: llms-full.txt
+      sections:
+        Getting Started:
+          - getting-started/index.md
+          - getting-started/installation.md
+          - getting-started/first-board.md
+        Concepts:
+          - concepts/index.md
+          - concepts/entities-as-data.md
+          - concepts/tagged-data.md
+          - concepts/commands-and-undo.md
+          - concepts/derived-state.md
+          - concepts/evaluators.md
+          - concepts/stats-and-modifiers.md
+          - concepts/events-and-reactions.md
+          - concepts/turns-and-scheduling.md
+          - concepts/grids-and-occupancy.md
+          - concepts/tokens-and-cues.md
+          - concepts/abilities-and-resolution.md
+        Plugins:
+          - plugins/index.md
+          - plugins/taggeddata/index.md
+          - plugins/taggeddata/guides.md
+          - plugins/taggeddata/reference.md
+          - plugins/commandsystem/index.md
+          - plugins/commandsystem/guides.md
+          - plugins/commandsystem/reference.md
+          - plugins/evaluators/index.md
+          - plugins/evaluators/guides.md
+          - plugins/evaluators/reference.md
+          - plugins/gameentity/index.md
+          - plugins/gameentity/guides.md
+          - plugins/gameentity/reference-entities.md
+          - plugins/gameentity/reference-stats.md
+          - plugins/gameentity/reference-events.md
+          - plugins/gameentity/reference-commands.md
+          - plugins/eventsystem/index.md
+          - plugins/eventsystem/guides.md
+          - plugins/eventsystem/reference.md
+          - plugins/tagevents/index.md
+          - plugins/tagevents/reference.md
+          - plugins/queueframework/index.md
+          - plugins/queueframework/reference.md
+          - plugins/gridgraph/index.md
+          - plugins/gridgraph/guides.md
+          - plugins/gridgraph/reference-graph.md
+          - plugins/gridgraph/reference-generation.md
+          - plugins/gridgraph/reference-movement.md
+          - plugins/gridgraph/reference-visualization.md
+          - plugins/gridentity/index.md
+          - plugins/gridentity/guides.md
+          - plugins/gridentity/reference.md
+          - plugins/tokensystem/index.md
+          - plugins/tokensystem/guides.md
+          - plugins/tokensystem/reference.md
+          - plugins/turnsystem/index.md
+          - plugins/turnsystem/guides.md
+          - plugins/turnsystem/reference.md
+          - plugins/abilitysystem/index.md
+          - plugins/abilitysystem/guides.md
+          - plugins/abilitysystem/reference-programs.md
+          - plugins/abilitysystem/reference-targeting.md
+          - plugins/abilitysystem/reference-triggers.md
+          - plugins/abilitysystem/reference-previews.md
+          - plugins/abilitysystem/reference-tooling.md
+          - plugins/tagdebug/index.md
+          - plugins/tagdebug/reference.md
+          - plugins/noisebasedrandomseed/index.md
+          - plugins/noisebasedrandomseed/reference.md
+          - plugins/polyhedraltooltips/index.md
+          - plugins/polyhedraltooltips/guides.md
+          - plugins/polyhedraltooltips/reference.md
+        Community:
+          - community/index.md
 
 nav:
   - Home: index.md
