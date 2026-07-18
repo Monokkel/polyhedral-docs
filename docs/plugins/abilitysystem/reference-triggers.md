@@ -288,7 +288,7 @@ surface is the trigger spec and the entity hierarchy.
 - [EventSystem reference](../eventsystem/reference.md#windowed-changes-entity-system) —
   the windowed changes a native trigger listens on, and the observer path for
   display-only listeners.
-- [Authoring: Programs, Modules & Custom Steps](reference-programs.md) — the ability
+- [Programs & Steps](reference-programs.md) — the ability
   program a trigger runs, and where the **Window: Declaration** step lives.
 - [Targeting & running abilities](reference-targeting.md) — the target sources a
   target-source channel resolves against.

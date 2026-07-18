@@ -318,7 +318,7 @@ per-frame availability check evaluates and can explain, condition by condition â
 [Targeting & Running Abilities](reference-targeting.md). `FPAbAbilityIntent` carries
 an `Action.*` tag that the
 [automatic playout layer](reference-previews.md#the-automatic-playout-layer) uses to
-pick how the activation's changes present. A fifth facet, `Data.Ability.Triggers`,
+pick how the activation's changes present. A fifth entry, `Data.Ability.Triggers`,
 makes the entity react to events â€” it belongs to
 [Triggers & Reactions](reference-triggers.md#authoring-triggers).
 

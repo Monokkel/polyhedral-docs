@@ -173,8 +173,9 @@ Recording is driven by the replay subsystem, `UPGeReplaySubsystem`
     the boundary is illegal, so check the return value rather than assuming
     success.
 
-Only the *authoritative* timeline is recorded. When the ability system (documented
-in a later section) simulates an action in advance — to preview it or let AI weigh
+Only the *authoritative* timeline is recorded. When the ability system (documented in
+[Abilities and step-by-step resolution](../../concepts/abilities-and-resolution.md#what-if-runs-previews-and-enemy-ai))
+simulates an action in advance — to preview it or let AI weigh
 it — that look-ahead never touches real state and is **invisible** to the
 recording, so a replay always reflects what actually happened.
 

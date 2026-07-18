@@ -145,7 +145,7 @@ than walls; see [reference-tooling.md](reference-tooling.md).
     }
     ```
 
-## The five authoring facets
+## The five authoring entries
 
 Everything an ability carries lives under five tagged-data entries. Each is an
 ordinary tagged-data value on the entity, so it inherits from the template,
@@ -173,7 +173,7 @@ The full native-tag list and the project-settings knobs live in
 - **[Guides](guides.md)** — task recipes: author your first ability from a
   ready-made program, add a target-selection decision point, author a reactive
   trigger, wire a custom targeting UI, and validate an ability.
-- **[Authoring: Programs, Modules & Custom Steps](reference-programs.md)** — the
+- **[Programs & Steps](reference-programs.md)** — the
   ready-made program library (the 80% path), the step base class and
   building-block steps, sub-programs and iteration, and the context handed to
   every step.
