@@ -123,9 +123,9 @@ To apply several base-stat deltas as one undo-friendly, single-recompute unit, s
 !!! note "A windowed variant exists for reactive changes"
     Alongside the direct `ModifyStat`, the subsystem also offers a *windowed* stat
     change (`ApplyStatChange`) that lets other entities react to — and even reshape —
-    the change before and after it commits. That reaction machinery belongs to the
-    event system's reaction mechanism, documented in a later section; the
-    functions on this page are the direct, reaction-blind path.
+    the change before and after it commits. That reaction machinery is the
+    [EventSystem's reaction windows](../eventsystem/guides.md#react-to-a-change-with-a-reaction-window);
+    the functions on this page are the direct, reaction-blind path.
 
 ---
 
