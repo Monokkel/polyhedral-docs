@@ -13,7 +13,7 @@ The framework keeps turn state where every other guarantee already lives: on an 
 
 The core turn machinery — the tracker and the call that advances it — ships inside the entity system, so you can run turns with nothing else added. Everything else on this page (policies, the projection, the flow driver) is an optional toolkit layered on top of it.
 
-<!-- pluginlink: turnsystem-index -->
+The scheduling and flow toolkit — policies, the projected order, and the flow driver — is the [TurnSystem plugin](../plugins/turnsystem/index.md); the core turn machinery it builds on ships with the entity system.
 
 ## Advancing the turn
 
@@ -103,9 +103,7 @@ The same seam expresses far more: an initiative list, a time-unit or charge-gaug
 
 And because the active policy is itself stored on the turn tracker as ordinary entity data, it saves, undoes, and rides into previews with the match. You can even swap policies mid-match as an undoable change — switch from side-based to a timeline when a "time warp" fires, then undo it and the old order comes back.
 
-<!-- pluginlink: turnsystem-reference -->
-
-<!-- pluginlink: turnsystem-guides -->
+For the policy API — the base type and the shipped side-based preset — see [Scheduler policies](../plugins/turnsystem/reference.md#scheduler-policies) in the TurnSystem reference; to author your own, follow [Write a scheduler policy](../plugins/turnsystem/guides.md#write-a-scheduler-policy) in the guides.
 
 ## The projected turn order
 
@@ -162,7 +160,7 @@ Its defining property: it owns no game state at all. Every fact it needs — who
     }
     ```
 
-<!-- pluginlink: turnsystem-reference -->
+For the flow-driver API — starting a match, advancing, and routing control — see [The flow driver](../plugins/turnsystem/reference.md#the-flow-driver) in the TurnSystem reference.
 
 ## What stays yours
 
