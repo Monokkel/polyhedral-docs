@@ -105,4 +105,12 @@ nav:
       - QueueFramework:
           - plugins/queueframework/index.md
           - API Reference: plugins/queueframework/reference.md
+      - GridGraph:
+          - plugins/gridgraph/index.md
+          - Guides: plugins/gridgraph/guides.md
+          - API Reference:
+              - The Grid & Topologies: plugins/gridgraph/reference-graph.md
+              - Generation & Patterns: plugins/gridgraph/reference-generation.md
+              - Movement & Reachability: plugins/gridgraph/reference-movement.md
+              - Visualization: plugins/gridgraph/reference-visualization.md
   - Community Guides: community/index.md
