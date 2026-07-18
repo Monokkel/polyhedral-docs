@@ -73,6 +73,7 @@ nav:
       - Turns & Scheduling: concepts/turns-and-scheduling.md
       - Grids & Occupancy: concepts/grids-and-occupancy.md
       - Tokens & Cues: concepts/tokens-and-cues.md
+      - Abilities & Resolution: concepts/abilities-and-resolution.md
   - Plugins:
       - plugins/index.md
       - TaggedData:

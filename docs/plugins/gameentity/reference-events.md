@@ -177,8 +177,9 @@ enforces it in development builds.
     belong to the event system's reaction mechanism, not here.
 
 !!! note "Look-ahead stays invisible"
-    The ability system (documented in a later section) can simulate an action in
-    advance without touching real state. During such a simulation the live
+    The ability system (documented in
+    [Abilities and step-by-step resolution](../../concepts/abilities-and-resolution.md#what-if-runs-previews-and-enemy-ai))
+    can simulate an action in advance without touching real state. During such a simulation the live
     delegates above stay quiet by design, so reactive presentation never reacts to
     a move that has not really happened — your listeners need no special case.
 

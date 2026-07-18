@@ -153,8 +153,10 @@ stands on.
 !!! tip "The payoff"
     Undo, redo, save, and replay all work because game state is copyable data
     with no hidden pointers. The same property lets more advanced features —
-    like the ability system (documented in a later section) simulating an action
-    in advance without touching the real game — reuse the exact same machinery.
+    like the ability system (documented in
+    [Abilities and step-by-step resolution](abilities-and-resolution.md#what-if-runs-previews-and-enemy-ai))
+    simulating an action in advance without touching the real game — reuse the
+    exact same machinery.
 
 !!! note "See it in action"
     The [first board tutorial](../getting-started/first-board.md) creates its

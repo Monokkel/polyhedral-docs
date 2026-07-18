@@ -399,6 +399,8 @@ void UnsubscribeFromEntityWindow(UObject* Subscriber, const FPGeEntityRef& Entit
                                  FGameplayTag EventTag);
 ```
 
+<!-- pluginlink: abilitysystem-reference-triggers -->
+
 The typed struct on a window broadcast records the immutable facts of the
 proposal. Note the **duality**: the immutable original delta rides the typed
 payload as an `int64`, while the *live, reshapeable* magnitude rides the payload's

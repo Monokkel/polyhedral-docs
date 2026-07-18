@@ -70,7 +70,7 @@ Once an event lands on a unit's own channel, "at the start of my turn" is just a
     // In the handler: read the payload's new turn state, show the banner. No state writes.
     ```
 
-An observer only *reflects* the turn. A start-of-turn effect that *changes* state — poison ticking damage at the start of your turn — is a game rule authored on the unit as a trigger, which is documented in a later section.
+An observer only *reflects* the turn. A start-of-turn effect that *changes* state — poison ticking damage at the start of your turn — is a game rule authored on the unit as a trigger, which is documented in [Abilities and step-by-step resolution](abilities-and-resolution.md#triggers-entity-carried-rules).
 
 ## Participants join by carrying an entry
 

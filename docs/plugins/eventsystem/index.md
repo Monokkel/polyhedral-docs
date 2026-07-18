@@ -59,7 +59,8 @@ you are creating*, because the two can do different things:
   entity as data*, so who is listening undoes, saves, and replays with the world.
   You don't register one at runtime the way you hook up a widget — the framework
   derives the live subscription from entity state. The full authoring surface for
-  entity-carried rules listeners is documented in a later section.
+  entity-carried rules listeners is documented in
+  [Abilities and step-by-step resolution](../../concepts/abilities-and-resolution.md#triggers-entity-carried-rules). <!-- pluginlink: abilitysystem-reference-triggers -->
 
 !!! warning "Observers can never affect the outcome"
     An ordinary subscription — Blueprint or C++ — cannot block or reshape a
@@ -69,7 +70,8 @@ you are creating*, because the two can do different things:
     to change the outcome, it must be a rules listener. There is one hand-written
     C++ path to a rules listener today, shown in the
     [guides](guides.md#react-to-a-change-with-a-reaction-window); the durable,
-    entity-carried surface is documented in a later section.
+    entity-carried surface is documented in
+    [Abilities and step-by-step resolution](../../concepts/abilities-and-resolution.md#triggers-entity-carried-rules). <!-- pluginlink: abilitysystem-reference-triggers -->
 
 ## The pieces at a glance
 
