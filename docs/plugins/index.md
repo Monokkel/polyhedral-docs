@@ -19,4 +19,10 @@ New to the framework? Read the [Core Concepts](../concepts/index.md) first — t
 - **[TurnSystem](turnsystem/index.md)** — scheduling and flow over the entity system's turn machinery: pluggable scheduler policies (the shipped side-based preset, plus your own initiative/timeline rules), a derived projected turn order, and an optional flow driver — all riding turn state that undoes, saves, and replays because it lives on an entity.
 - **[AbilitySystem](abilitysystem/index.md)** — the capstone rules engine: author a unit's actions — spells, attacks, item uses, passives, counters — as data-driven programs of steps that the framework resolves one step at a time, pausing for player choices and for entity-carried triggers (interrupts and reactions). The same steps run against a temporary, throwaway copy of the game state to power target previews, availability checks, and enemy AI.
 
-More plugin sections are being added as the site grows.
+Three supporting utilities round out the set:
+
+- **[TagDebug](tagdebug/index.md)** — a live, tag-driven debug console: author `Debug.*` gameplay tags for typed flags and one-shot actions, read them anywhere to branch on a toggle, and reflect changes into Blueprint event graphs, with optional per-tag persistence. Built on TagEvents.
+- **[NoiseBasedRandomSeed](noisebasedrandomseed/index.md)** — deterministic, save- and replay-safe random numbers keyed by a *domain* tag: each domain gets its own seed and stream, with sequential draws that advance the stream and stateless keyed draws that don't — so loot rolls and procedural generation reproduce exactly across a reload.
+- **[PolyhedralTooltips](polyhedraltooltips/index.md)** — tooltip and display-data conventions: inline rich-text keywords that pop a tooltip on hover, or imperative show/hide from widget code, with content authored in a data table, per-entry data assets, or live objects, and rendered by your own tooltip widget.
+
+Every plugin in the current framework release now has a section.
