@@ -131,7 +131,7 @@ Reactive code that watches state change — a health bar, a cache, an on-screen 
 !!! warning "Change-event listeners are read-only"
     A listener runs *inside* command execution — including during undo and redo. If it could submit a command, undo would re-drive your game rules while it was trying to reverse them. So listeners observe; they never write.
 
-Reactions that *mutate* state — "when this unit is damaged, it retaliates" — are game rules, not derived state. They belong to the event system's reaction mechanism, documented in a later section. For everything that only *reflects* state, see [Derived State and Change Events](derived-state.md).
+Reactions that *mutate* state — "when this unit is damaged, it retaliates" — are game rules, not derived state. They belong to [reaction windows](events-and-reactions.md), the event system's reaction mechanism. For everything that only *reflects* state, see [Derived State and Change Events](derived-state.md).
 
 ## Why the strictness pays off
 

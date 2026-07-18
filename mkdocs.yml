@@ -69,6 +69,10 @@ nav:
       - Derived State & Events: concepts/derived-state.md
       - Evaluators: concepts/evaluators.md
       - Stats & Modifiers: concepts/stats-and-modifiers.md
+      - Events & Reactions: concepts/events-and-reactions.md
+      - Turns & Scheduling: concepts/turns-and-scheduling.md
+      - Grids & Occupancy: concepts/grids-and-occupancy.md
+      - Tokens & Cues: concepts/tokens-and-cues.md
   - Plugins:
       - plugins/index.md
       - TaggedData:

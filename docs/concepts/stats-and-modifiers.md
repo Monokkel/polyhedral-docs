@@ -142,7 +142,9 @@ Beyond removing a modifier by hand, a modifier can carry an **end condition** �
 "until this encounter ends," "while this item stays equipped." Expiry is always
 driven by a game event: an entity ending, a child leaving a container, a state
 changing. It is never driven by wall-clock time, so a paused, undone, or replayed
-game expires buffs at exactly the right moment every time.
+game expires buffs at exactly the right moment every time. The most common of these
+— "until end of turn" — is driven by the turn events described in
+[Turns and Scheduling](turns-and-scheduling.md).
 
 ## Granted modifiers from carried entities
 
