@@ -37,7 +37,7 @@ save, and rewind identically.
     this unit reach" work exactly the same, because both are questions about the graph's
     connections, not about coordinates.
 
-<!-- pluginlink: gridgraph-reference -->
+For the full graph API — nodes and connections, topologies, and hosting a grid in the world — see [The Grid & Topologies](../plugins/gridgraph/reference-graph.md#the-grid-graph) in the GridGraph reference.
 
 ## Building the board
 
@@ -88,7 +88,7 @@ self-contained value.
     Grid->ConformToTerrain(Grid->GetAllNodes(), Settings);
     ```
 
-<!-- pluginlink: gridgraph-guides -->
+Ready to build one? Follow [Build a board](../plugins/gridgraph/guides.md#build-a-board) in the GridGraph guides.
 
 ## Two spatial questions, two tools
 
@@ -132,7 +132,7 @@ bug.
         UPGxMovementLibrary::ComputeEntityReachability(this, Unit, Grid, /*MaxCost=*/50);
     ```
 
-<!-- pluginlink: gridgraph-reference -->
+For the API behind each: [patterns](../plugins/gridgraph/reference-generation.md#patterns) answer the shape query, and [reachability](../plugins/gridgraph/reference-movement.md#reachability) answers the movement query.
 
 ## Movement is per-unit, assembled from data
 
@@ -187,7 +187,7 @@ drift — there is no floating-point wobble to reorder a tie between two builds.
     UPGxMovementLibrary::RevokeMovementGrantsBySource(this, Unit, Boots);
     ```
 
-<!-- pluginlink: gridgraph-reference -->
+For the full movement API — sources, cost modifiers, and the reachability result — see [Movement & Reachability](../plugins/gridgraph/reference-movement.md#the-movement-profile) in the GridGraph reference.
 
 ## Standing on the board: placement
 
