@@ -113,4 +113,8 @@ nav:
               - Generation & Patterns: plugins/gridgraph/reference-generation.md
               - Movement & Reachability: plugins/gridgraph/reference-movement.md
               - Visualization: plugins/gridgraph/reference-visualization.md
+      - TokenSystem:
+          - plugins/tokensystem/index.md
+          - Guides: plugins/tokensystem/guides.md
+          - API Reference: plugins/tokensystem/reference.md
   - Community Guides: community/index.md
