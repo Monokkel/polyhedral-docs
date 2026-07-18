@@ -132,7 +132,7 @@ Where you would make an unconditional change, make the windowed one instead.
 
     Authoring Blueprint interrupts and triggered reactions — the rules that
     actually reshape or answer a windowed change — is part of the entity-carried
-    trigger surface, documented in a later section. <!-- pluginlink: abilitysystem-guides-author-a-trigger -->
+    trigger surface; see [Author a reactive trigger](../abilitysystem/guides.md#author-a-reactive-trigger).
 
 === "C++"
     ```cpp
@@ -147,8 +147,8 @@ Where you would make an unconditional change, make the windowed one instead.
 The one hand-written path to a rules listener today is a C++ subscription at a
 negative order with `bTransient = false`. That flag is the escape hatch — "I own
 this listener's lifecycle myself." (The durable, entity-carried way to author
-outcome-affecting listeners is documented in a later section; this is the manual
-path.) <!-- pluginlink: abilitysystem-guides-author-a-trigger -->
+outcome-affecting listeners is documented in [Author a reactive trigger](../abilitysystem/guides.md#author-a-reactive-trigger); this is the manual
+path.)
 
 ```cpp
 // On the defender, author an interrupt at order -10. A negative order puts it in

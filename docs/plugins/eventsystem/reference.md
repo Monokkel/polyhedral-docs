@@ -392,14 +392,15 @@ static FName GetEntityWindowChannel(const FPGeEntityRef& Entity);
 
 // Subscribe to an entity's window as an OBSERVER (always transient). Sees the
 // proposal but cannot veto or reshape it. To author a listener that shapes or
-// vetoes, use an entity-carried trigger — documented in a later section.
+// vetoes, use an entity-carried trigger (see the AbilitySystem reference).
 void SubscribeToEntityWindow(UObject* Subscriber, const FPGeEntityRef& Entity,
                              FGameplayTag EventTag, int32 Order = 0);
 void UnsubscribeFromEntityWindow(UObject* Subscriber, const FPGeEntityRef& Entity,
                                  FGameplayTag EventTag);
 ```
 
-<!-- pluginlink: abilitysystem-reference-triggers -->
+The entity-carried listener surface that *can* veto or reshape a window is the
+AbilitySystem plugin's [Authoring triggers](../abilitysystem/reference-triggers.md#authoring-triggers).
 
 The typed struct on a window broadcast records the immutable facts of the
 proposal. Note the **duality**: the immutable original delta rides the typed

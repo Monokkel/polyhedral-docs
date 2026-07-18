@@ -114,7 +114,7 @@ area from a unit's reachability once on selection; then, as the cursor moves, ca
     ```
 
 The **target** channel is the counterpart the ability system drives to telegraph what
-a spell would hit; that wiring is documented in a later section. <!-- pluginlink: abilitysystem-reference-targeting --> Because `ShowTargets`
+a spell would hit; that wiring is documented in [Painting targets on the grid](../abilitysystem/reference-targeting.md#painting-targets-on-the-grid). Because `ShowTargets`
 takes the same plain cell set as `ShowArea`, you can also drive it directly for any
 "these cells are targeted" overlay.
 
@@ -233,7 +233,7 @@ decal marker per target cell, tuned to read *on top of* a reachable-area fill â€
 ring on each cell an ability would strike. It is a decal presenter under the hood, so
 it shares the same config (`DecalMaterial`, `DecalSize`, `HeightBias`, and the rest)
 and the same theming. Drop it in a profile's target list; the ability system feeds the
-Target channel through the driver's `ShowTargets`, as documented in a later section. <!-- pluginlink: abilitysystem-reference-targeting -->
+Target channel through the driver's `ShowTargets`, as documented in [Painting targets on the grid](../abilitysystem/reference-targeting.md#painting-targets-on-the-grid).
 
 ## Themes and profiles
 
@@ -329,7 +329,7 @@ instead of live reachability, which makes it a clean harness for iterating on a
 profile's look.
 
 There is also an ability-system-driven preview that shows a predicted overlay while
-hovering an action; that driver is documented in a later section. <!-- pluginlink: abilitysystem-reference-hover-preview -->
+hovering an action; that driver is documented in [Hover previews](../abilitysystem/reference-previews.md#hover-previews).
 
 ## Whole-grid visualizers
 

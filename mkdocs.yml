@@ -126,4 +126,13 @@ nav:
           - plugins/turnsystem/index.md
           - Guides: plugins/turnsystem/guides.md
           - API Reference: plugins/turnsystem/reference.md
+      - AbilitySystem:
+          - plugins/abilitysystem/index.md
+          - Guides: plugins/abilitysystem/guides.md
+          - API Reference:
+              - Programs & Modules: plugins/abilitysystem/reference-programs.md
+              - Targeting & Running: plugins/abilitysystem/reference-targeting.md
+              - Triggers & Reactions: plugins/abilitysystem/reference-triggers.md
+              - Previews, AI & What-Ifs: plugins/abilitysystem/reference-previews.md
+              - Configuration & Tooling: plugins/abilitysystem/reference-tooling.md
   - Community Guides: community/index.md

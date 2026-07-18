@@ -255,7 +255,7 @@ settles, so a sequence waits for the visual to finish.
     handler driving a token that implements *both* prefers the stat display's
     `AnimateTo` so the number actually tweens. Previewable and ghostable are the
     preview half of the model — the surfaces exist and share the cue rails, and
-    the driver that feeds them is documented in a later section. <!-- pluginlink: abilitysystem-reference-hover-preview -->
+    the driver that feeds them is documented in [Hover previews](../abilitysystem/reference-previews.md#hover-previews).
 
 ## Presentation channels and the entity widget
 

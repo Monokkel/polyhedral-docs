@@ -226,6 +226,6 @@ One rule governs a step's body, and everything else depends on it: **a step touc
 
 ## Where this goes next
 
-The AbilitySystem plugin section owns the mechanics this page kept at arm's length: the exact editor nodes, the full step-and-program reference, the trigger-authoring recipes, the targeting-session API and its grid wiring, the hover-preview calls, the automatic playout layer, and the AI hooks. It is documented in a later section. <!-- pluginlink: abilitysystem-index -->
+The AbilitySystem plugin section owns the mechanics this page kept at arm's length: the exact editor nodes, the full step-and-program reference, the trigger-authoring recipes, the targeting-session API and its grid wiring, the hover-preview calls, the automatic playout layer, and the AI hooks. It is documented in the [AbilitySystem plugin section](../plugins/abilitysystem/index.md).
 
 Once the Getting Started arc lands, it will wire a first ability end-to-end — grant it, activate it, add a trigger, and preview it on hover — as a single worked slice, tying every idea on this page back to a running game.
