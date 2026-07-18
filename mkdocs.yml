@@ -98,4 +98,7 @@ nav:
       - TagEvents:
           - plugins/tagevents/index.md
           - API Reference: plugins/tagevents/reference.md
+      - QueueFramework:
+          - plugins/queueframework/index.md
+          - API Reference: plugins/queueframework/reference.md
   - Community Guides: community/index.md
