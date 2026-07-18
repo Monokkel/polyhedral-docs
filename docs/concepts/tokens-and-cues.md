@@ -48,7 +48,7 @@ A unit on the board is a special case worth calling out: its Token derives its w
 
 <!-- pluginlink: gridentity-reference -->
 
-<!-- pluginlink: tokensystem-reference -->
+For the full registry API — resolving a token, the automatic spawn and release, and playing a cue — see [The token registry](../plugins/tokensystem/reference.md#the-token-registry) in the TokenSystem reference.
 
 ## State commits instantly; the screen plays it out
 
@@ -111,7 +111,7 @@ Reuse is by the registry, not by inheritance. When one Token needs a signature l
     };
     ```
 
-<!-- pluginlink: tokensystem-guides -->
+Ready to write one? Follow [Write a cue handler](../plugins/tokensystem/guides.md#write-a-cue-handler) in the TokenSystem guides.
 
 ## Capabilities: drive a token without knowing its class
 
@@ -136,7 +136,7 @@ The core Token interface stays deliberately tiny — three lifecycle hooks and n
     }
     ```
 
-<!-- pluginlink: tokensystem-reference -->
+For the full list of capabilities and how a handler drives them, see [Capabilities](../plugins/tokensystem/reference.md#capabilities) in the TokenSystem reference.
 
 ## One entity, many surfaces
 
@@ -163,7 +163,7 @@ The shipped building block for auxiliary surfaces is the **entity widget** — a
 !!! tip "Party frames and sheets are auxiliaries, not second Tokens"
     A HUD readout of an entity is an auxiliary channel, never a second Token. There is exactly one primary Token per entity — the one the registry spawns and positions — and it is the only surface that gates timing. Register extra surfaces as auxiliaries (an entity widget does this for you on bind); don't try to give one entity two Tokens.
 
-<!-- pluginlink: tokensystem-reference -->
+For the channel API and the entity-widget building block, see [Presentation channels and the entity widget](../plugins/tokensystem/reference.md#presentation-channels-and-the-entity-widget) in the TokenSystem reference.
 
 ## Previews ride the same rails
 
@@ -197,4 +197,4 @@ The registry's snapping is fully automatic — you get a correct board with no c
 
 The next step — turning committed state changes into cues *automatically*, choosing snap-versus-sequence, and fanning previews out on hover — is work the ability system does for you, documented in a later section. Until then the story is exactly the two tiers this page opened with: snapping is free and automatic, and cues are opt-in polish that you play. Nothing about hand-playing cues changes when the automatic layer arrives — the same cues, handlers, and capabilities are what it will drive.
 
-<!-- pluginlink: tokensystem-reference -->
+Ready to play one yourself? Follow [Play a cue yourself](../plugins/tokensystem/guides.md#play-a-cue-yourself) in the TokenSystem guides.
