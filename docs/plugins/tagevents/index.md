@@ -24,11 +24,9 @@ TagEvents is a standalone, zero-dependency plugin. It provides one mechanism —
 resolve the handler a gameplay tag names on an object, validate its signature, and
 call it. Two things build on that core:
 
-- The **EventSystem** plugin adds broadcast, channels, subscriber ordering, and
-  reaction windows on top of it — that's what "at the start of my turn" and "when
-  damaged, retaliate" ride on.
-
-<!-- pluginlink: eventsystem-index -->
+- The **[EventSystem](../eventsystem/index.md)** plugin adds broadcast, channels,
+  subscriber ordering, and reaction windows on top of it — that's what "at the start
+  of my turn" and "when damaged, retaliate" ride on.
 
 - Tag-driven debugging tools are a thin specialization of the same core.
 

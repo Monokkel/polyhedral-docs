@@ -95,6 +95,10 @@ nav:
               - Stats & Modifiers: plugins/gameentity/reference-stats.md
               - Change Events: plugins/gameentity/reference-events.md
               - Commands & Replay: plugins/gameentity/reference-commands.md
+      - EventSystem:
+          - plugins/eventsystem/index.md
+          - Guides: plugins/eventsystem/guides.md
+          - API Reference: plugins/eventsystem/reference.md
       - TagEvents:
           - plugins/tagevents/index.md
           - API Reference: plugins/tagevents/reference.md

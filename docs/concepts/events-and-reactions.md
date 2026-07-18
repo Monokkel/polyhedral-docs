@@ -57,7 +57,7 @@ Subscribing, then, is three things: which event tag, which channel, and an **ord
 
 A broadcast can resolve immediately and depth-first — the rules that answer it run to completion before the code that raised it moves on — or be queued to run after the current work finishes. That choice is a timing flag on the broadcast; the default is immediate.
 
-<!-- pluginlink: eventsystem-reference -->
+For the full subscribe-and-broadcast API — channels, order, the payload, and timing — see the [EventSystem reference](../plugins/eventsystem/reference.md#subscribing-to-events).
 
 ## Observers and rules listeners are different populations
 
@@ -107,8 +107,10 @@ An interrupt reads the proposed amount off the event's payload, reshapes it, and
     ```cpp
     // Runs before the change commits. The proposed delta rides the payload's
     // numbers map under the stat's tag; halving it turns a -10 hit into -5.
-    // (The handler is bound by the event tag, the same rule the Blueprint node uses.)
-    void UArmor::OnHealthWindow(UObject* Caller, UTagEventPayloadObject* Payload)
+    // A C++ handler's NAME is generated from the event tag, not chosen by you —
+    // this signature is illustrative; the EventSystem guides show how it's named
+    // (and the trigger surface that writes it for you).
+    void UArmor::HandleHealthWindow(UObject* Caller, UTagEventPayloadObject* Payload)
     {
         const float Proposed = Payload->Stats.FindRef(HealthTag);
         Payload->Stats.Add(HealthTag, Proposed * 0.5f);   // armor softens the hit
@@ -126,7 +128,7 @@ An interrupt reads the proposed amount off the event's payload, reshapes it, and
 
 Apply Stat Change is the windowed sibling of the direct base-stat change you met on [Stats and Modifiers](stats-and-modifiers.md#two-layers-base-and-current) — same change, now with a moment for rules to respond around it.
 
-<!-- pluginlink: eventsystem-guides -->
+For the step-by-step how-to — opening a window with Apply Stat Change and shaping it with an interrupt — see [React to a change with a reaction window](../plugins/eventsystem/guides.md#react-to-a-change-with-a-reaction-window) in the EventSystem guides.
 
 ## Ordering is deterministic — always
 
