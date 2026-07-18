@@ -135,4 +135,14 @@ nav:
               - Triggers & Reactions: plugins/abilitysystem/reference-triggers.md
               - Previews, AI & What-Ifs: plugins/abilitysystem/reference-previews.md
               - Configuration & Tooling: plugins/abilitysystem/reference-tooling.md
+      - TagDebug:
+          - plugins/tagdebug/index.md
+          - API Reference: plugins/tagdebug/reference.md
+      - NoiseBasedRandomSeed:
+          - plugins/noisebasedrandomseed/index.md
+          - API Reference: plugins/noisebasedrandomseed/reference.md
+      - PolyhedralTooltips:
+          - plugins/polyhedraltooltips/index.md
+          - Guides: plugins/polyhedraltooltips/guides.md
+          - API Reference: plugins/polyhedraltooltips/reference.md
   - Community Guides: community/index.md
