@@ -219,7 +219,6 @@ apply order. That list is the direct feed for a tooltip like
 - See a buff added end to end in the
   [first board tutorial](../getting-started/first-board.md).
 
-<!-- pluginlink: gameentity-reference -->
 For the complete stat and modifier API — every function, the data-table authoring
-surface, and the settings that define your phases — see the GameEntity plugin
-reference.
+surface, and the settings that define your phases — see the
+[GameEntity stats &amp; modifiers reference](../plugins/gameentity/reference-stats.md).

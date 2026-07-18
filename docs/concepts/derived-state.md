@@ -91,6 +91,8 @@ Here is a health bar that stays correct through play, undo, and load:
 
 The framework's own resolved current stats are maintained exactly this way: recomputed reactively from change events, rebuilt on restore, never saved. It is the same pattern working at scale — see [stats-and-modifiers.md](stats-and-modifiers.md). Change events fire *from* command execution, which is the other half of the [commands](commands-and-undo.md) story; and the state they describe is the [entity](entities-as-data.md) data itself.
 
-<!-- pluginlink: gameentity-reference -->
+For the complete change-event surface — every event type, the payload fields, and the
+[mutation-to-event matrix](../plugins/gameentity/reference-events.md#the-mutation-to-event-matrix) —
+see the [GameEntity change-events reference](../plugins/gameentity/reference-events.md#subscribing-to-change-events).
 
 *See it in action: the [first board tutorial](../getting-started/first-board.md) wires a health bar to these events and watches it track through an undo.*
