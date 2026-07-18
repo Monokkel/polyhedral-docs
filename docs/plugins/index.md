@@ -10,5 +10,6 @@ New to the framework? Read the [Core Concepts](../concepts/index.md) first — t
 - **[CommandSystem](commandsystem/index.md)** — the undo/redo/replay engine: every authoritative change goes through a command stack, so the whole game rewinds and replays reliably.
 - **[Evaluators](evaluators/index.md)** — composable number and true/false calculations authored as data: damage formulas, requirements, and tuning knobs that live in data tables and assets instead of hard-coded branches.
 - **[GameEntity](gameentity/index.md)** — the heart of the framework: the central game state where every unit, item, ability, and status effect lives as a value-struct entity, with template inheritance, a stat + modifier system, change events, and save/replay. Ties the other three plugins together.
+- **[TagEvents](tagevents/index.md)** — the lightweight tag-keyed dispatch core: call a handler on an object by gameplay tag, with no delegate wiring or hard reference. The foundation the event system is built on, and usable on its own.
 
 More plugin sections are being added as the site grows.
