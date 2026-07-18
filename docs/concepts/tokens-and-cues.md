@@ -31,9 +31,9 @@ Which Token class visualizes an entity is authored as data on the entity's templ
 === "C++"
     ```cpp
     // Author which Token class visualizes this entity — usually in its data-table row,
-    // or on the template's tagged data in code:
+    // or in code as tagged data on the entity (an override that beats the template):
     FInstancedStruct TokenData = UPTkTokenSubsystem::MakeTokenClassData(BP_GoblinToken);
-    State->SetTaggedData(GoblinTemplate, PTkTokenTags::TAG_Data_Presentation_TokenClass, TokenData);
+    State->SetTaggedData(GoblinRef, PTkTokenTags::TAG_Data_Presentation_TokenClass, TokenData);
 
     // From here on the registry does the work. Creating the entity spawns its Token;
     // destroying it (or undoing the creation) releases it. To reach a live Token:
@@ -157,7 +157,7 @@ The shipped building block for auxiliary surfaces is the **entity widget** — a
     // Bind a readout to one entity and one value. The base registers it with the
     // registry as an auxiliary channel, so the registry snaps it — the widget never
     // subscribes to change events itself. Re-callable: pass a new entity to re-bind.
-    HealthBar->SetBoundEntity(SelectedUnit, TAG_Stat_Health);
+    HealthBar->SetBoundEntity(SelectedUnit, HealthTag);
     ```
 
 !!! tip "Party frames and sheets are auxiliaries, not second Tokens"

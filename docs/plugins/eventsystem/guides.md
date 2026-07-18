@@ -41,7 +41,7 @@ broadcast costs almost nothing — it checks for subscribers and exits.
         EPEsBroadcastTiming::Immediate);
 
     // Optional: react to a phase completing before you queue the calls.
-    Handle->OnAfterAll.AddDynamic(this, &UMyRules::OnTrapResolved);
+    Handle->OnAfterAll.AddDynamic(this, &UMyRules::OnTrapResolved);  // handler declared UFUNCTION()
 
     UPEsEventLibrary::FinishBroadcastEvent(Handle);
     ```
@@ -270,6 +270,7 @@ stops *that* listener and raises a hook your game answers.
     UPEsEventSubsystem::Get(this)->OnSiteRepetitionCapReached.AddDynamic(
         this, &UMyRules::OnLoopCapped);
 
+    // OnLoopCapped is declared UFUNCTION() in the header — dynamic delegates bind by name.
     void UMyRules::OnLoopCapped(FName SubscriberId, FGameplayTag EventTag,
                                 FName Channel, int32 DispatchCount)
     {

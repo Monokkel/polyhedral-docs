@@ -176,7 +176,7 @@ drift — there is no floating-point wobble to reorder a tie between two builds.
     FGridSuccessorSource_CliffJump Jump;
     Jump.DefaultJumpHeight = 2;   // may drop or rise up to two levels
     UPGxMovementLibrary::GrantMovementSource(
-        this, Unit, TAG_Data_Movement_Source_CliffJump,
+        this, Unit, PGxMovementTags::TAG_Data_Movement_Source_CliffJump,
         FInstancedStruct::Make(Jump), /*GrantSource=*/Boots);
 
     // The reach recomputes from the new profile — no cache to invalidate.

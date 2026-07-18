@@ -328,8 +328,8 @@ the runtime driver — render whatever cells you are handed — just fed by a de
 instead of live reachability, which makes it a clean harness for iterating on a
 profile's look.
 
-There is also an ability-system-driven preview that shows a predicted or speculative
-overlay while hovering an action; that driver is documented in a later section.
+There is also an ability-system-driven preview that shows a predicted overlay while
+hovering an action; that driver is documented in a later section.
 
 ## Whole-grid visualizers
 

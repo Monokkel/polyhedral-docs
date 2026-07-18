@@ -30,7 +30,7 @@ identically, and it is why a replay never drifts.
 GridGraph is **standalone and zero-dependency**. It needs none of the other plugins,
 and a game with no game-entity layer at all can build a board, run a reachability
 flood, and draw the result. GridGraph owns the grid data, the shape math, generation,
-the movement engine, and the on-screen presenters — the whole spatial substrate.
+the movement engine, and the on-screen presenters — the whole spatial layer.
 
 What it deliberately does *not* own is any tie to your game's units. Placing an entity
 on a cell, asking "who is standing here?", and granting a unit the boots that let it

@@ -161,6 +161,7 @@ Because reactions can cause reactions, mutually-triggering rules are legal to au
     UPEsEventSubsystem::Get(this)->OnSiteRepetitionCapReached.AddDynamic(
         this, &UMyRules::OnLoopCapped);
 
+    // OnLoopCapped is declared UFUNCTION() in the header — dynamic delegates bind by name.
     void UMyRules::OnLoopCapped(FName SubscriberId, FGameplayTag EventTag,
                                 FName Channel, int32 DispatchCount)
     {

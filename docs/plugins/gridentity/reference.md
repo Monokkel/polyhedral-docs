@@ -15,7 +15,7 @@ and replays with the rest of game state.
 
 A unit's position is **placement**: tagged data on the entity, written through
 commands like every other change to game state. `UPGxPlacementLibrary` is a Blueprint
-function library — a set of static calls — that reads and writes it. Two facets exist,
+function library — a set of static calls — that reads and writes it. Two kinds exist,
 and an entity carries at most one at a time:
 
 - **`Data.Placement.Cell`** — an `FPGxGridPlacement` for a unit on a grid. The cell is

@@ -267,7 +267,7 @@ one-call **Blueprint-callable** wrappers that assemble the trivial walk profile,
 empty snapshot, and an empty board view for you:
 
 ```cpp
-// Trivial-profile convenience (BlueprintCallable). Uniform cost-1 walk along connections.
+// Trivial-profile convenience (BlueprintCallable). Uniform one-step (10) cost walk along connections.
 TArray<FGridNodeHandle> UGridGraph::FindPath(FGridNodeHandle Start, FGridNodeHandle End, int32& OutPathCost) const;
 FGridReachability       UGridGraph::ComputeReachability(FGridNodeHandle Start, int32 MaxCost = -1) const;
 TArray<FGridNodeHandle> UGridGraph::GetReachableNodesWithinCost(FGridNodeHandle Start, int32 MaxCost) const;
@@ -318,8 +318,8 @@ It answers only "what is true of this cell / this connection right now": the liv
 tags, and what occupies a cell. It is a plain C++ interface, not a UObject, so a test
 can implement it as a stack struct and the query never pulls object lifetime into a
 read-only facade. A game built on entities supplies a view backed by the live board
-state, so movement automatically respects the current occupancy and any in-flight
-speculative board.
+state, so movement automatically respects the current occupancy — including when a
+preview or AI what-if runs the same search against a temporary copy of the game state.
 
 ```cpp
 class IGridBoardView
