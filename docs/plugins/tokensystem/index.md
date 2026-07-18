@@ -65,7 +65,7 @@ Hold the plugin in your head as two tiers:
 Today you play cues yourself, wherever you want the extra beat. The next step —
 turning committed state changes into cues *automatically*, choosing snap-versus-
 sequence, and fanning previews out on hover — is work the ability system does for
-you, documented in a later section. Nothing you build against cues now changes
+you, documented in [Abilities and step-by-step resolution](../../concepts/abilities-and-resolution.md#from-committed-change-to-the-screen). <!-- pluginlink: abilitysystem-reference-playout --> Nothing you build against cues now changes
 when that layer arrives; it drives the same cues, handlers, and capabilities.
 
 !!! note "The grid-aware token lives in GridEntity"

@@ -68,7 +68,7 @@ The ordinary subscribe path — and *every* Blueprint subscribe node — creates
 A **rules listener** — one that can change or block what happens — is a different animal. It is part of game state itself: the listening lives on an [entity](entities-as-data.md) as data, so *who is listening* undoes, saves, and replays with the world, exactly like the unit's health does. You don't *register* a rules listener at runtime the way you hook up a UI widget — you *author* one onto an entity, and the framework derives the live subscriptions from that entity state.
 
 !!! warning "Observers can never affect the outcome"
-    If your listener only needs to *know* something happened, an ordinary subscription is perfect. But if it needs to block or reshape what happens — halve incoming damage, veto a status — an ad-hoc subscription cannot do it, no matter what order you give it. Observers are dispatched after every rule and are locked out of the pre-commit phase by construction. Outcome-affecting rules are authored as entity-carried triggers; that full authoring surface is documented in a later section. The next section shows the one hand-written path that exists today.
+    If your listener only needs to *know* something happened, an ordinary subscription is perfect. But if it needs to block or reshape what happens — halve incoming damage, veto a status — an ad-hoc subscription cannot do it, no matter what order you give it. Observers are dispatched after every rule and are locked out of the pre-commit phase by construction. Outcome-affecting rules are authored as entity-carried triggers; that full authoring surface is documented in [Abilities and step-by-step resolution](abilities-and-resolution.md#triggers-entity-carried-rules). The next section shows the one hand-written path that exists today.
 
 ## Reaction windows
 
@@ -87,7 +87,7 @@ An interrupt reads the proposed amount off the event's payload, reshapes it, and
     1. Where you would call **Modify Stat** for an unconditional change, call **Apply Stat Change** instead — target, `Stat.Health`, `-10`, and the instigator. This opens the reaction window on the target.
     2. To *watch* that window from Blueprint, drop **Subscribe to Entity Window** on the target for the `Stat.Health` tag and raise a "Damage incoming" banner. This is an observer: it sees the proposal but cannot change the number.
 
-    Authoring Blueprint interrupts and triggered reactions — the rules that actually reshape or answer a windowed change — is part of the ability system's trigger surface, documented in a later section.
+    Authoring Blueprint interrupts and triggered reactions — the rules that actually reshape or answer a windowed change — is part of the ability system's trigger surface, documented in [Abilities and step-by-step resolution](abilities-and-resolution.md#triggers-entity-carried-rules).
 
 === "C++"
     ```cpp
@@ -173,4 +173,4 @@ Because reactions can cause reactions, mutually-triggering rules are legal to au
 
 ## Where this goes next
 
-Two systems build directly on this machinery. Turn boundaries — "at the start of my turn," "at end of round" — are gameplay events broadcast on exactly the channels and phases described here; see [Turns and Scheduling](turns-and-scheduling.md). And the durable way to author entity-carried rules listeners — triggers that ride on a unit, an item, or an ability and undo and save with it — is the ability system's trigger surface, documented in a later section. Everything on that surface resolves down to the events, windows, and ordering on this page.
+Two systems build directly on this machinery. Turn boundaries — "at the start of my turn," "at end of round" — are gameplay events broadcast on exactly the channels and phases described here; see [Turns and Scheduling](turns-and-scheduling.md). And the durable way to author entity-carried rules listeners — triggers that ride on a unit, an item, or an ability and undo and save with it — is the ability system's trigger surface, documented in [Abilities and step-by-step resolution](abilities-and-resolution.md#triggers-entity-carried-rules). Everything on that surface resolves down to the events, windows, and ordering on this page.

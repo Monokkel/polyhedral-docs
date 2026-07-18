@@ -18,6 +18,7 @@ The framework is a small stack of ideas, each one resting on the previous:
 8. **[Turns and scheduling](turns-and-scheduling.md)** — turn state is an entity and turn boundaries are events, so rounds, initiative, and "at the start of my turn" undo, save, and replay like everything else — with pluggable rules for who acts next.
 9. **[Grids and occupancy](grids-and-occupancy.md)** — the board is a durable graph of cells; a unit's position is entity data, "who stands where" is derived state, and "where can this unit go" is a per-unit query — never something baked into the map.
 10. **[Presentation: Tokens and Cues](tokens-and-cues.md)** — how committed state changes become what the player sees: every entity gets an on-screen stand-in that is always right, and animated playout is layered on top without ever touching game state. This is where all of the above reaches the screen.
+11. **[Abilities and step-by-step resolution](abilities-and-resolution.md)** — a unit's actions are themselves entities: data-authored programs of steps, resolved by a rules engine that pauses for choices and responses — and the same steps run against a throwaway copy of the game state to power previews and enemy AI. This is the final capstone: every idea above, composed.
 
 ## Where to start
 
@@ -25,3 +26,4 @@ The framework is a small stack of ideas, each one resting on the previous:
 - Coming from Unreal's Gameplay Ability System? Start with [Entities](entities-as-data.md), then jump to [Stats and Modifiers](stats-and-modifiers.md) — the base-plus-modifiers model will feel familiar, with one big difference: here the entire stack is plain data that undoes and saves with everything else.
 - Coming from GAS's GameplayCues? Jump to [Tokens & Cues](tokens-and-cues.md) — a cue handler will feel like a GameplayCueNotify, with one hard rule added: presentation code never reads or writes game state out of turn, which is what keeps undo and replay exact.
 - Building a grid tactics game? Read [Grids & Occupancy](grids-and-occupancy.md) and [Turns & Scheduling](turns-and-scheduling.md) back to back — board and turn order are the two structures such a game stands on, and both undo and replay by construction here.
+- Here for spells, attacks, and passives? Read [Abilities and step-by-step resolution](abilities-and-resolution.md) *last* — it is the capstone that composes everything else, and it assumes the vocabulary of [Events](events-and-reactions.md), [Turns](turns-and-scheduling.md), and [Tokens & Cues](tokens-and-cues.md).

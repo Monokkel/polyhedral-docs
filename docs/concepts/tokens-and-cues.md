@@ -169,7 +169,7 @@ For the channel API and the entity-widget building block, see [Presentation chan
 
 Hovering a move or an attack, a game wants to paint the *predicted* outcome — the damage a target would take, the cell a unit would end on, a translucent **ghost** of something that would be summoned. Presentation supports this through the same handlers and capabilities as real playout: a previewable surface overlays the predicted change non-destructively (a health bar stays full and paints the red band it *would* lose) instead of snapping to it, and the overlay is torn down cleanly when the hover moves on. Real playout and predicted overlay are distinct by design — a preview never commits and never animates the live path.
 
-What *computes* those predictions — running the hovered action against a temporary copy of the game state and discarding it afterward — is the ability system's work, documented in a later section. This page only establishes the presentation side: the surfaces, the ghosts, and the overlays exist and share the cue rails, waiting for a driver to feed them.
+What *computes* those predictions — running the hovered action against a temporary copy of the game state and discarding it afterward — is the ability system's work, documented in [Abilities and step-by-step resolution](abilities-and-resolution.md#what-if-runs-previews-and-enemy-ai). This page only establishes the presentation side: the surfaces, the ghosts, and the overlays exist and share the cue rails, waiting for a driver to feed them.
 
 ## Where cues come from today
 
@@ -195,6 +195,6 @@ The registry's snapping is fully automatic — you get a correct board with no c
     UPTkTokenSubsystem::Get(this)->PlayCue(UnitRef, Cue, Ctx);
     ```
 
-The next step — turning committed state changes into cues *automatically*, choosing snap-versus-sequence, and fanning previews out on hover — is work the ability system does for you, documented in a later section. Until then the story is exactly the two tiers this page opened with: snapping is free and automatic, and cues are opt-in polish that you play. Nothing about hand-playing cues changes when the automatic layer arrives — the same cues, handlers, and capabilities are what it will drive.
+The next step — turning committed state changes into cues *automatically*, choosing snap-versus-sequence, and fanning previews out on hover — is work the ability system does for you, documented in [Abilities and step-by-step resolution](abilities-and-resolution.md#from-committed-change-to-the-screen). Until then the story is exactly the two tiers this page opened with: snapping is free and automatic, and cues are opt-in polish that you play. Nothing about hand-playing cues changes when the automatic layer arrives — the same cues, handlers, and capabilities are what it will drive.
 
 Ready to play one yourself? Follow [Play a cue yourself](../plugins/tokensystem/guides.md#play-a-cue-yourself) in the TokenSystem guides.
