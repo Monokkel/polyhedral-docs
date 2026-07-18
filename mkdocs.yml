@@ -69,4 +69,10 @@ nav:
       - Derived State & Events: concepts/derived-state.md
       - Evaluators: concepts/evaluators.md
       - Stats & Modifiers: concepts/stats-and-modifiers.md
+  - Plugins:
+      - plugins/index.md
+      - TaggedData:
+          - plugins/taggeddata/index.md
+          - Guides: plugins/taggeddata/guides.md
+          - API Reference: plugins/taggeddata/reference.md
   - Community Guides: community/index.md
