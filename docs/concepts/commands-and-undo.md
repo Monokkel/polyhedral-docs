@@ -142,6 +142,7 @@ Commands mutate *base* state only. Derived values — like resolved current stat
 The framework ships an [automated test harness](../plugins/commandsystem/reference.md#conformance-harness) that exercises a command against these rules — applying, undoing, and redoing it and checking the state comes back byte-for-byte — so a command that honors the contract can be proven to honor it.
 
 For the full command-stack API — transactions, the execution phase, stack events, and the correctness harness — see the [CommandSystem plugin reference](../plugins/commandsystem/reference.md).
-<!-- pluginlink: gameentity-reference -->
+
+GameEntity ships ready-made commands for every kind of state change — modifying stats, adding tags, creating entities, and more — so you rarely write one yourself; see the [built-in command catalogue](../plugins/gameentity/reference-commands.md#the-built-in-command-catalogue).
 
 *See it in action: the [first board tutorial](../getting-started/first-board.md) makes a stat change and wires up a working Undo button.*

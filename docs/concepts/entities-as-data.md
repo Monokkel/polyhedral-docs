@@ -113,9 +113,10 @@ a child row overrides its parents, and stats, tags, and typed data are all
 authored directly in the row. Composing a "fire goblin" from a "goblin" base is
 a matter of pointing one row at another, not writing a subclass.
 
-<!-- pluginlink: gameentity-reference -->
-The full authoring surface — row property imports, registry-backed creation, and
-entity queries — is covered in the GameEntity plugin guide.
+The full authoring surface — [row property imports](../plugins/gameentity/reference-entities.md#authoring-rows),
+[registry-backed creation](../plugins/gameentity/reference-entities.md#creating-entities), and
+[entity queries](../plugins/gameentity/reference-entities.md#existence-and-queries) — is covered in the
+[GameEntity plugin reference](../plugins/gameentity/reference-entities.md).
 
 ## The hierarchy and slots
 
