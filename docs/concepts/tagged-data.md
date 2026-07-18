@@ -148,10 +148,12 @@ Tagged data is easy to over-use. A little discipline keeps it a strength.
     - Treat the schema as your project's designed data surface — the catalogue of
       what data means — not a dumping ground for one-off values.
 
-<!-- pluginlink: taggeddata-reference -->
-The complete node inventory, the schema subsystem, and every project setting live
-in the TaggedData plugin guide. Wiring the schema into your project settings is a
-one-time [installation step](../getting-started/installation.md).
+The complete [node inventory](../plugins/taggeddata/reference.md#typed-blueprint-nodes),
+the [schema subsystem](../plugins/taggeddata/reference.md#schema-subsystem), and every
+[project setting](../plugins/taggeddata/reference.md#settings) are documented in the
+[TaggedData plugin reference](../plugins/taggeddata/reference.md). Wiring the schema
+into your project settings is a one-time
+[installation step](../getting-started/installation.md).
 
 !!! note "See it in action"
     The [first board tutorial](../getting-started/first-board.md) stores its first
