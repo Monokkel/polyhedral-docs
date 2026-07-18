@@ -8,7 +8,7 @@ Every authoritative change to game state goes through a **command** submitted to
 
 Reads are direct and free. You look up an entity, a tag, or a stat whenever you like — no command needed. Only *writes* go through the door.
 
-Most of the time you never write a command yourself. The game-entity mutation functions — create an entity, add a tag, modify a stat, add a modifier — are already command-driven. Call one and you get undo, redo, and replay with nothing extra to do. You author a *custom* command only when you add a new kind of state that the framework does not already manage. See [entities-as-data.md](entities-as-data.md) for what that state is.
+Most of the time you never write a command yourself. The game-entity mutation functions — create an entity, add a tag, modify a stat, add a modifier — are already command-driven. Call one and you get undo, redo, and replay with nothing extra to do. You author a *custom* command only when you add a new kind of state that the framework does not already manage. See [Entities Are Data](entities-as-data.md) for what that state is.
 
 !!! tip "The split in one line"
     Reading state is a plain function call. Changing state is a command. If you find yourself mutating game state without going through the stack, that change will not undo, save, or replay.
@@ -131,13 +131,13 @@ Reactive code that watches state change — a health bar, a cache, an on-screen 
 !!! warning "Change-event listeners are read-only"
     A listener runs *inside* command execution — including during undo and redo. If it could submit a command, undo would re-drive your game rules while it was trying to reverse them. So listeners observe; they never write.
 
-Reactions that *mutate* state — "when this unit is damaged, it retaliates" — are game rules, not derived state. They belong to the event system's reaction mechanism, documented in a later section. For everything that only *reflects* state, see [derived-state.md](derived-state.md).
+Reactions that *mutate* state — "when this unit is damaged, it retaliates" — are game rules, not derived state. They belong to the event system's reaction mechanism, documented in a later section. For everything that only *reflects* state, see [Derived State and Change Events](derived-state.md).
 
 ## Why the strictness pays off
 
 Undo, redo, and replay all work the same way: they re-run commands against reconstructed state. One command that captures a delta instead of a value, or half-applies before failing, or reads a random number, corrupts all three — and nothing flags it at the moment it happens. Follow the four rules and you get an undo/redo/replay system you never have to debug.
 
-Commands mutate *base* state only. Derived values — like resolved current stats — are never captured in a command; the framework recomputes them automatically afterward (see [derived-state.md](derived-state.md) and [stats-and-modifiers.md](stats-and-modifiers.md)). That boundary is exactly why rule 3 forbids reading derived caches inside `Apply`.
+Commands mutate *base* state only. Derived values — like resolved current stats — are never captured in a command; the framework recomputes them automatically afterward (see [Derived State and Change Events](derived-state.md) and [Stats and Modifiers](stats-and-modifiers.md)). That boundary is exactly why rule 3 forbids reading derived caches inside `Apply`.
 
 The framework ships an [automated test harness](../plugins/commandsystem/reference.md#conformance-harness) that exercises a command against these rules — applying, undoing, and redoing it and checking the state comes back byte-for-byte — so a command that honors the contract can be proven to honor it.
 

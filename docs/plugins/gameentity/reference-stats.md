@@ -94,7 +94,7 @@ game logic. Use `GetStat` when you specifically need the untouched authored numb
 
 === "C++"
     ```cpp
-    if (State->GetCurrentStat(Unit, TAG_Stat_Health).Scaled <= 0)
+    if (State->GetCurrentStat(Unit, TAG_Stat_Health) <= FEvalStatValue())
     {
         // unit is down
     }
@@ -124,7 +124,7 @@ To apply several base-stat deltas as one undo-friendly, single-recompute unit, s
     Alongside the direct `ModifyStat`, the subsystem also offers a *windowed* stat
     change (`ApplyStatChange`) that lets other entities react to — and even reshape —
     the change before and after it commits. That reaction machinery belongs to the
-    event system and is documented in [Stat-change events](reference-events.md); the
+    event system's reaction mechanism, documented in a later section; the
     functions on this page are the direct, reaction-blind path.
 
 ---
@@ -328,7 +328,7 @@ struct FPGeGrantedModGroup
 ```
 
 !!! important "The gate is a tag query on the carrier, not an evaluator condition"
-    `ActiveCondition` is a **gameplay-tag query matched against the carrying (child)
+    `ActiveCondition` is a **gameplay-tag query matched against the carried (child)
     entity's own tags — including its slot tags** — not a general evaluator
     condition. Use it for "only while equipped in a `Slot.Weapon`" or "only while this
     item carries `State.Attuned`". The grants reconcile when the child is
@@ -497,7 +497,6 @@ The relevant tag roots are `Stat.*` (stats), `StatPhase.*` (ordering phases),
 - [Stats & Modifiers concept](../../concepts/stats-and-modifiers.md) — the mental model.
 - [Derived state](../../concepts/derived-state.md) — why current stats are never saved.
 - [Evaluators plugin](../evaluators/index.md) and its [reference](../evaluators/reference.md) — magnitudes, pipelines, and the stat value type.
-- [Stat-change events](reference-events.md) — reacting to stat changes (the windowed path).
 - [Entity reference](reference-entities.md) — the lifecycle, hierarchy, and tagged-data API.
 - [Command reference](reference-commands.md) — the built-in stat commands and replay.
 - [CommandSystem plugin](../commandsystem/index.md) — the undo/redo substrate behind every write.

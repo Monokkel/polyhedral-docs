@@ -27,7 +27,7 @@ of it. No grid, no turns, no rendering — just the state layer everything else
 sits on.
 
 !!! note "Before you start"
-    You need the four Phase 1 plugins enabled and the project compiling. If you
+    You need the four core plugins enabled and the project compiling. If you
     haven't done that yet, walk through [Installation](installation.md) first.
 
 Every mutation in this tutorial is followable two ways: pick the **Blueprint**
@@ -212,6 +212,11 @@ it correct is on the [Derived State & Events](../concepts/derived-state.md) page
     }
     ```
 
+!!! tip "Base vs. current stat"
+    This example watches **Stat Changed** — the base stat you edit directly. Once
+    modifiers enter the picture in Step 6, display code usually watches **Current
+    Stat Changed** (the resolved value) instead. Both arrive on the same event.
+
 Now repeat Step 4's hit-then-Undo and watch the display follow both directions
 by itself — the same listener handles the change and its reversal.
 
@@ -270,5 +275,6 @@ You've touched the whole core loop. To go deeper on any piece:
   **[Evaluators](../concepts/evaluators.md)** — buffs, gear, auras, and
   data-driven formulas.
 
-<!-- pluginlink: gameentity-reference -->
-<!-- pluginlink: taggeddata-reference -->
+Ready for the full API? See the [GameEntity](../plugins/gameentity/index.md) and
+[TaggedData](../plugins/taggeddata/index.md) plugin sections for the complete
+reference and more guides.

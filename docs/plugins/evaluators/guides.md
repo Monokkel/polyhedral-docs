@@ -45,6 +45,8 @@ drops below a point.
     };
 
     AddStep(EMagnitudeOp::Add,      50.f, TEXT("Base Damage"));
+    // An "attacker's strength" step reads a stat, so it needs a custom calc
+    // (a constant can't express it) — see "Write a custom magnitude calc" below.
     AddStep(EMagnitudeOp::Multiply,  2.f, TEXT("Critical"));
     AddStep(EMagnitudeOp::Max,       1.f, TEXT("Minimum"));
 

@@ -1,7 +1,7 @@
 # Installation
 
 For a developer adding the framework to an Unreal Engine 5.8 project for the
-first time. After this page you'll have the four Phase 1 plugins enabled, a
+first time. After this page you'll have the four core plugins enabled, a
 tagged-data schema wired up, and a project that compiles — ready for the
 [first-board tutorial](first-board.md).
 
@@ -15,7 +15,7 @@ tagged-data schema wired up, and a project that compiles — ready for the
   yourself (Visual Studio on Windows, Xcode on macOS). Blueprint-only users can
   let the editor compile plugins on launch.
 
-## The four Phase 1 plugins
+## The four core plugins
 
 The starting set is four plugins. Enable **all four** — they build on each
 other, and the one you'll use most (GameEntity) depends on the other three.
@@ -89,7 +89,7 @@ At a high level:
 You can start with an empty schema and add entries as the tutorial introduces
 them — the typed nodes fall back gracefully until a tag is listed.
 
-<!-- pluginlink: taggeddata-reference -->
+Full schema reference: [TaggedData API Reference](../plugins/taggeddata/reference.md#schema).
 
 ## Verify it worked
 

@@ -157,4 +157,4 @@ into your project settings is a one-time
 
 !!! note "See it in action"
     The [first board tutorial](../getting-started/first-board.md) stores its first
-    custom struct on a tile — a good place to try this hands-on.
+    custom struct on an entity — a good place to try this hands-on.

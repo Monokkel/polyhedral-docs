@@ -72,8 +72,10 @@ Here is a health bar that stays correct through play, undo, and load:
     ```cpp
     void UHealthBar::BindTo(UPGeGameStateSubsystem* State)
     {
-        State->OnAnyEntityChanged.AddUObject(this, &UHealthBar::OnChanged);
-        State->OnStateRestored.AddUObject(this, &UHealthBar::Rebuild); // wholesale
+        // These are dynamic multicast delegates, so OnChanged and Rebuild
+        // must be UFUNCTION()s, bound with AddDynamic.
+        State->OnAnyEntityChanged.AddDynamic(this, &UHealthBar::OnChanged);
+        State->OnStateRestored.AddDynamic(this, &UHealthBar::Rebuild); // wholesale
     }
 
     void UHealthBar::OnChanged(const FPGeEntityChange& Change)
@@ -89,7 +91,7 @@ Here is a health bar that stays correct through play, undo, and load:
 
     `Rebuild` re-reads the watched entity's current stat from the subsystem and sets the bar from scratch — the path that runs on load.
 
-The framework's own resolved current stats are maintained exactly this way: recomputed reactively from change events, rebuilt on restore, never saved. It is the same pattern working at scale — see [stats-and-modifiers.md](stats-and-modifiers.md). Change events fire *from* command execution, which is the other half of the [commands](commands-and-undo.md) story; and the state they describe is the [entity](entities-as-data.md) data itself.
+The framework's own resolved current stats are maintained exactly this way: recomputed reactively from change events, rebuilt on restore, never saved. It is the same pattern working at scale — see [Stats and Modifiers](stats-and-modifiers.md). Change events fire *from* command execution, which is the other half of the [commands](commands-and-undo.md) story; and the state they describe is the [entity](entities-as-data.md) data itself.
 
 For the complete change-event surface — every event type, the payload fields, and the
 [mutation-to-event matrix](../plugins/gameentity/reference-events.md#the-mutation-to-event-matrix) —

@@ -77,7 +77,7 @@ refers to roles, and each call binds those roles to real objects.
     An evaluator computes a value; it never changes game state. This is deliberate:
     the same formula runs during normal play, during undo, and during a preview,
     and it must give the same answer every time. Anything that *changes* state goes
-    through a command instead — see [commands-and-undo.md](commands-and-undo.md).
+    through a command instead — see [Commands and Undo](commands-and-undo.md).
 
 ## Breakdowns for debugging and tooltips
 
@@ -144,12 +144,12 @@ Fill a context, evaluate a pipeline, and read the breakdown back.
 
 The framework's flagship use of evaluators is stat modifiers: a modifier takes a
 magnitude as its value source, so "+1 attack per level" is an authored pipeline
-rather than hand-written code. See [stats-and-modifiers.md](stats-and-modifiers.md).
+rather than hand-written code. See [Stats and Modifiers](stats-and-modifiers.md).
 
 Evaluators commonly read entity data through their context sources — the typed
-data described in [tagged-data.md](tagged-data.md). And the read-only rule above
+data described in [Tagged Data](tagged-data.md). And the read-only rule above
 is the other side of the write path in
-[commands-and-undo.md](commands-and-undo.md).
+[Commands and Undo](commands-and-undo.md).
 
 For the full list of built-in [magnitude](../plugins/evaluators/reference.md#magnitudes)
 and [condition](../plugins/evaluators/reference.md#conditions) calcs, their parameters,
