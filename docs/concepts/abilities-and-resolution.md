@@ -80,7 +80,7 @@ Declining a decision point is a normal, empty answer: resolution continues (Mind
 
 === "Blueprint"
     1. Subscribe to **On Decision Requested** (or let the reference targeting driver do it for you) — it hands over the prompt, the candidate list, and the min/max selection count.
-    2. On a click, call **Select Candidate**. A single-select choice submits immediately; a multi-select one accumulates and auto-submits once it reaches the maximum.
+    2. On a click, call **Select Candidate** on the reference driver's **Targeting Session** — the reusable selection object your own UI drives the same way. A single-select choice submits immediately; a multi-select one accumulates and auto-submits once it reaches the maximum.
     3. **Decline Pending Gate** answers empty and lets resolution continue; **Cancel Pending Order** rolls the whole activation back. Decline is skip; cancel is undo.
 
 === "C++"
@@ -118,14 +118,14 @@ Stacking is by composition, not by editing an array: a "when hit, retaliate" buf
     Armor.EventTag        = HealthTag;                  // react to changes to this stat
     Armor.Channel         = EPAbTriggerChannel::Self;   // on MY own window
     Armor.Order           = -10;                        // interrupt phase (sign picks it)
-    Armor.ProgramOverride = UArmorSoften::StaticClass();
+    Armor.ProgramOverride = UArmorSoftenProgram::StaticClass();
 
     // A reaction: retaliate after being hit. Zero-or-positive = post-commit.
     FPAbTriggerSpec Retaliate;
     Retaliate.EventTag        = HealthTag;
     Retaliate.Channel         = EPAbTriggerChannel::Self;
     Retaliate.Order           = 0;                       // reaction phase
-    Retaliate.ProgramOverride = URetaliateSwing::StaticClass();
+    Retaliate.ProgramOverride = URetaliateProgram::StaticClass();
 
     // Both are just data entries the entity carries — they undo, save, and
     // replay with it. Multiple triggers per entity is native.

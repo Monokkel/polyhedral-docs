@@ -103,7 +103,7 @@ The three configurable sources:
 
 ```cpp
 // "Lookback (ABM Handle)" — read one named earlier step's output by its stable handle.
-struct UPAbSourceAccessor_Lookback   // an EditInlineNew Source Accessor class
+class UPAbSourceAccessor_Lookback   // an EditInlineNew Source Accessor class
 {
     FGuid            Handle;   // which earlier step (the authoring dropdown writes this)
     FString          Label;    // human-readable echo only — NEVER matched, so a rename is safe
@@ -117,7 +117,7 @@ enum class EPAbLookbackList : uint8   // BlueprintType
 };
 
 // "Reachable Cells" — the mover's reachable set, the candidate source a move decision point points at.
-struct UPAbSourceAccessor_ReachableCells
+class UPAbSourceAccessor_ReachableCells
 {
     UPAbSourceAccessor* Source;   // optional mover override; unset = the Caller
     /* FEvalMagnitudeCalc */ MaxCost;   // move budget (usually a stat); empty = the whole reachable set
@@ -126,7 +126,7 @@ struct UPAbSourceAccessor_ReachableCells
 
 // "Grid Circle Occupants" — the occupants within a hop-radius of an anchor, the
 // candidate source a ranged-attack decision point points at.
-struct UPAbSourceAccessor_GridCircleOccupants
+class UPAbSourceAccessor_GridCircleOccupants
 {
     UPAbSourceAccessor* Source;   // optional anchor override; unset = the incoming list, else the Caller's cell
     int32 Radius = 1;             // radius in grid hops (0 = the anchor cell only)
@@ -180,7 +180,7 @@ gathers a candidate set, suspends, and publishes a [decision request](#the-decis
 describing the choice — then waits until an answer arrives.
 
 ```cpp
-struct UPAbGate_SelectTargets   // a step; editor display name "Gate: Select Targets"
+class UPAbGate_SelectTargets   // a step; editor display name "Gate: Select Targets"
 {
     FText               Prompt;         // designer-facing text carried on the request ("Choose a target")
     UPAbSourceAccessor* CandidateSource;// the candidate set; unset = the incoming target list

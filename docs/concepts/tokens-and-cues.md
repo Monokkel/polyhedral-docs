@@ -195,6 +195,6 @@ The registry's snapping is fully automatic — you get a correct board with no c
     UPTkTokenSubsystem::Get(this)->PlayCue(UnitRef, Cue, Ctx);
     ```
 
-The next step — turning committed state changes into cues *automatically*, choosing snap-versus-sequence, and fanning previews out on hover — is work the ability system does for you, documented in [Abilities and step-by-step resolution](abilities-and-resolution.md#from-committed-change-to-the-screen). Until then the story is exactly the two tiers this page opened with: snapping is free and automatic, and cues are opt-in polish that you play. Nothing about hand-playing cues changes when the automatic layer arrives — the same cues, handlers, and capabilities are what it will drive.
+The next step — turning committed state changes into cues *automatically*, choosing snap-versus-sequence, and fanning previews out on hover — is work the ability system does for you, documented in [Abilities and step-by-step resolution](abilities-and-resolution.md#from-committed-change-to-the-screen). With the ability system in play, that layer plays them for you; without it, the story is exactly the two tiers this page opened with — snapping is free and automatic, and cues are opt-in polish that you play. Nothing about hand-playing cues changes either way: the same cues, handlers, and capabilities are what the automatic layer drives.
 
 Ready to play one yourself? Follow [Play a cue yourself](../plugins/tokensystem/guides.md#play-a-cue-yourself) in the TokenSystem guides.

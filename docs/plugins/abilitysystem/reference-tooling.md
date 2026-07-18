@@ -12,7 +12,7 @@ behind it, see [Abilities and step-by-step resolution](../../concepts/abilities-
 ## Gameplay tags
 
 Public types carry the `PAb` prefix; the plugin owns a small, fixed set of native
-gameplay tags. Five of them are the **facet keys** an ability entity carries as
+gameplay tags. Five of them are the **tagged-data keys** an ability entity carries as
 [tagged data](../taggeddata/reference.md) — the presence of a key, and the value
 struct stored under it, is what gives an entity its ability behavior. Any entity can
 carry any of them: a sword, a status effect, and a spell all use the same keys.
@@ -22,10 +22,10 @@ carry any of them: a sword, a status effect, and a spell all use the same keys.
 | `Data.Ability.Program` | `FPAbProgramRef` | Points at the ability's [program of steps](reference-programs.md) — a program class or asset. Its presence is what gives the entity behavior when it activates or a trigger fires. |
 | `Data.Ability.Activation` | `FPAbActivationSpec` | Marks the entity as something a player can activate manually, and carries a few activation options. |
 | `Data.Ability.UseConditions` | `FPAbUseConditions` | The conditions under which the ability may be used — what the cheap per-frame availability check evaluates, and can name when it fails. |
-| `Data.Ability.Triggers` | `FPAbTriggerList` | The [entity-carried triggers](reference-triggers.md) this entity listens on — its reactive facet, zero or more trigger specs. |
+| `Data.Ability.Triggers` | `FPAbTriggerList` | The [entity-carried triggers](reference-triggers.md) this entity listens on — its reactive entry, zero or more trigger specs. |
 | `Data.Ability.Intent` | `FPAbAbilityIntent` | An optional presentation intent that tells the [automatic playout layer](reference-previews.md#the-automatic-playout-layer) how to group this activation's cues. When absent, cues default to the generic `Action` floor below. |
 
-The remaining native tags are not facet keys — they are shared markers the runtime
+The remaining native tags are not data keys — they are shared markers the runtime
 sets or reads:
 
 | Tag | What it's for |
@@ -63,7 +63,7 @@ write would desync a run from what a replay or an automated check assumed).
 | `DefaultAiScoringSamples` | `1` | How many times the AI re-runs a candidate action to average its outcome. `1` is exact for abilities with no random rolls — every run coincides. Raise it for abilities whose outcome varies with rolls, so the AI scores the expected outcome rather than one sampled roll. (The AI always samples its own separate stream — never the roll your activation will actually get.) |
 
 !!! note "The config you author against is stable"
-    The data structs a project authors against — these settings, the facet value
+    The data structs a project authors against — these settings, the entry value
     structs above, trigger specs, and step configuration — ship as a versioned
     contract: changes to them are additive-only, so authored content never silently
     breaks on a framework upgrade.
@@ -101,8 +101,8 @@ The stable check ids are the reference material:
 ## Validate Ability
 
 **Validate Ability** is a per-ability editor action. Right-click an ability program
-asset in the Content Browser and choose it; results appear in a Message Log listing
-(**PAbAbilityValidation**). It runs the linter *plus* an automated consistency check:
+asset in the Content Browser and choose it; results appear in the **Ability Validation**
+Message Log. It runs the linter *plus* an automated consistency check:
 it activates the ability against a synthesized solo caster — once for real and once as
 a what-if run — and compares the net set of changes each produced.
 

@@ -5,7 +5,7 @@ unit and drive it. Each section is a numbered, followable recipe that opens with
 what it accomplishes. For the model behind them read
 [Abilities and step-by-step resolution](../../concepts/abilities-and-resolution.md);
 for the type-by-type surface see the reference pages —
-[Programs, Modules & Custom Steps](reference-programs.md),
+[Programs & Steps](reference-programs.md),
 [Targeting & Running Abilities](reference-targeting.md),
 [Triggers & Reactions](reference-triggers.md),
 [Previews, AI & What-Ifs](reference-previews.md), and
@@ -347,7 +347,7 @@ action runs the linter *plus* an automated consistency check.
 === "Editor"
     1. In the Content Browser, right-click an ability program asset and choose
        **Validate Ability**.
-    2. Read the results in the **PAbAbilityValidation** Message Log — the linter
+    2. Read the results in the **Ability Validation** Message Log — the linter
        findings, then the consistency verdict.
 
 === "C++"

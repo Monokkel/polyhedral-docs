@@ -94,8 +94,8 @@ An interrupt reads the proposed amount off the event's payload, reshapes it, and
     // On the defender, author an interrupt at order -10. A negative order puts it
     // in the pre-commit phase. bTransient=false is the escape hatch — "I own this
     // listener's lifecycle myself." (The framework's durable way to author
-    // outcome-affecting listeners, entity-carried triggers, is documented in a
-    // later section; this is the one hand-written path today.)
+    // outcome-affecting listeners — entity-carried triggers — is covered on the
+    // abilities concept page; this is the one hand-written path.)
     UPEsEventSubsystem::Get(this)->Subscribe(
         this,
         HealthTag,                                            // the stat's tag is the event tag

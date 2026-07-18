@@ -130,7 +130,7 @@ nav:
           - plugins/abilitysystem/index.md
           - Guides: plugins/abilitysystem/guides.md
           - API Reference:
-              - Programs & Modules: plugins/abilitysystem/reference-programs.md
+              - Programs & Steps: plugins/abilitysystem/reference-programs.md
               - Targeting & Running: plugins/abilitysystem/reference-targeting.md
               - Triggers & Reactions: plugins/abilitysystem/reference-triggers.md
               - Previews, AI & What-Ifs: plugins/abilitysystem/reference-previews.md

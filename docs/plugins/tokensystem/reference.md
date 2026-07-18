@@ -87,7 +87,8 @@ void UnregisterAuxiliaryChannel(const FPGeEntityRef& Ref,
     [previewable and ghostable capabilities](#capabilities) have something to
     drive them, but *what* computes and feeds a preview — running a hovered action
     against a throwaway copy of state — is the ability system's job, documented in
-    a later section. This page establishes only the presentation side.
+    [Hover previews](../abilitysystem/reference-previews.md#hover-previews). This page
+    establishes only the presentation side.
 
 ## The token interface and lifecycle
 
@@ -342,7 +343,7 @@ class UPTkProjectedAction : public UQueuedAction
 You author one directly only to exercise the sequenced-playout path by hand. The
 automatic layer that builds and feeds these from committed changes — grouping a
 batch, choosing snap-versus-sequence — is the ability system's work, documented in
-a later section.
+[the automatic playout layer](../abilitysystem/reference-previews.md#the-automatic-playout-layer).
 
 ## The shipped cue handlers
 

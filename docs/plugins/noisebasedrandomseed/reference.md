@@ -95,7 +95,7 @@ and `GetKeyedRandomBoolInDomain`.
 
 !!! note "Palette label quirk"
     The middle node's Blueprint display name currently reads *Keyed Random Float In
-    Range* even though it returns an **integer** in the `Min…Max` range (the subsystem's
+    Range (In Domain)* even though it returns an **integer** in the `Min…Max` range (the subsystem's
     matching call is the plainly-named `GetKeyedRandomIntInRange`). If you're hunting
     for a keyed integer draw, that "Float"-labelled node is the one.
 
@@ -180,6 +180,7 @@ For plugin authors only: the subsystem exposes a native multicast delegate,
 `OnCursorAdvancedDev`, that fires whenever any domain's sequential cursor advances. It's
 a C++-only diagnostic hook (not a dynamic/Blueprint delegate) compiled in **only for
 non-shipping builds** — it doesn't exist in Shipping and is unreachable from Blueprint
-under any configuration. Downstream dev tooling can bind to it (for example the ability
-system's resolution sentinel); the plugin itself neither knows nor cares who listens.
+under any configuration. Downstream dev tooling can bind to it (for example, the ability system uses it in
+development builds to flag a sequential draw made during an ability's resolution); the
+plugin itself neither knows nor cares who listens.
 It is not a gameplay feature — general consumers can ignore it.
