@@ -25,6 +25,7 @@ theme:
   features:
     - navigation.tabs
     - navigation.sections
+    - navigation.indexes
     - navigation.top
     - navigation.footer
     - content.action.edit
@@ -56,4 +57,16 @@ plugins:
 
 nav:
   - Home: index.md
+  - Getting Started:
+      - getting-started/index.md
+      - Installation: getting-started/installation.md
+      - Your First Board: getting-started/first-board.md
+  - Concepts:
+      - concepts/index.md
+      - Entities: concepts/entities-as-data.md
+      - Tagged Data: concepts/tagged-data.md
+      - Commands & Undo: concepts/commands-and-undo.md
+      - Derived State & Events: concepts/derived-state.md
+      - Evaluators: concepts/evaluators.md
+      - Stats & Modifiers: concepts/stats-and-modifiers.md
   - Community Guides: community/index.md
