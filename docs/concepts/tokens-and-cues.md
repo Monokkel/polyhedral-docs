@@ -46,7 +46,7 @@ A unit on the board is a special case worth calling out: its Token derives its w
 !!! tip "The snap guarantee"
     With zero presentation code beyond assigning a Token class, the board is always correct — it snaps to the truth on every change, including undo and load. Everything after this section is *polish*, not correctness. If a Token ever shows the wrong state, that is a bug in the snap, not something a cue was supposed to fix.
 
-<!-- pluginlink: gridentity-reference -->
+The grid-aware token that snaps a mini to its cell and walks it along a move is the [grid token](../plugins/gridentity/reference.md#the-grid-token) in the GridEntity reference.
 
 For the full registry API — resolving a token, the automatic spawn and release, and playing a cue — see [The token registry](../plugins/tokensystem/reference.md#the-token-registry) in the TokenSystem reference.
 

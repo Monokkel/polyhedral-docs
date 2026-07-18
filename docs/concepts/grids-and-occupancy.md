@@ -227,9 +227,7 @@ something you wire per move; see [Tokens & Cues](tokens-and-cues.md).
     UPGxPlacementLibrary::MoveEntityToCell(this, Goblin, TargetCell);
     ```
 
-<!-- pluginlink: gridentity-reference -->
-
-<!-- pluginlink: gridentity-guides -->
+For the full placement API — create-at-cell, move-to-cell, and how a move joins your transaction — see [Placement](../plugins/gridentity/reference.md#placement) in the GridEntity reference; to move units step by step, follow [Move units on the board](../plugins/gridentity/guides.md#move-units-on-the-board) in the guides.
 
 ## Occupancy: who is on this cell
 
@@ -264,4 +262,4 @@ is legal.
     Stack->Undo();   // the unit is back on its old cell; the same query now agrees
     ```
 
-<!-- pluginlink: gridentity-reference -->
+For the full occupancy API — listing a cell's entities and the order they come back in — see [Occupancy](../plugins/gridentity/reference.md#occupancy) in the GridEntity reference.
