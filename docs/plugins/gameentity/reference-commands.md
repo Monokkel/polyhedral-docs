@@ -119,8 +119,9 @@ end-condition authoring surface is covered in the
 
 You do not need to reason about how these commands reverse themselves — that is
 the framework's job — but it is worth knowing the guarantee. Every built-in
-command is **inverse-capturing**: when it applies, it records the exact prior
-state it will need to restore, not the change it made.
+command records, when it applies, the exact prior state it will need to restore —
+not the change it made — so the reversal is always exact, even when a value was
+clamped on the way in.
 
 - Setting or modifying a stat records the previous value *and* whether the stat
   existed at all, so undo restores the value or removes the stat again.

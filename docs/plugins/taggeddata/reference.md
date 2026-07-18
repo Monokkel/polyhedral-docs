@@ -5,8 +5,9 @@ covers one area with clean signatures and short usage notes; for step-by-step
 recipes see the [Guides](guides.md), and for the model see
 [Tagged Data](../../concepts/tagged-data.md).
 
-All public types carry the `PTa` prefix. Signatures below are hand-written to
-show the shape of each API; they are illustrative, not source excerpts.
+Public types carry the `PTa` prefix (with one legacy exception, `ETaggedDataResult`,
+noted below). Signatures below are hand-written to show the shape of each API;
+they are illustrative, not source excerpts.
 
 ## Interface
 

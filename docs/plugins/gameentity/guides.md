@@ -311,8 +311,9 @@ correct through all of them.
     ```cpp
     void UHealthBar::BindTo(UPGeGameStateSubsystem* State)
     {
-        State->OnAnyEntityChanged.AddUObject(this, &UHealthBar::OnChanged);
-        State->OnStateRestored.AddUObject(this, &UHealthBar::Rebuild);  // wholesale
+        // Dynamic multicast delegates — OnChanged and Rebuild must be UFUNCTION()s.
+        State->OnAnyEntityChanged.AddDynamic(this, &UHealthBar::OnChanged);
+        State->OnStateRestored.AddDynamic(this, &UHealthBar::Rebuild);  // wholesale
     }
 
     void UHealthBar::OnChanged(const FPGeEntityChange& Change)

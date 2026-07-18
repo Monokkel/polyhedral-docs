@@ -25,8 +25,8 @@ You mutate base stats and modifiers; you *read* current stats. Stats live under 
 
 Every base-stat change and every modifier change goes through the command stack, so
 all of it undoes, saves, and replays — see
-[commands-and-undo.md](commands-and-undo.md). The current values fall out as derived
-state, exactly like the reactive pattern in [derived-state.md](derived-state.md).
+[Commands and Undo](commands-and-undo.md). The current values fall out as derived
+state, exactly like the reactive pattern in [Derived State and Change Events](derived-state.md).
 
 !!! note "If you've used Unreal Engine's Gameplay Ability System"
     A base value aggregated through a stack of modifiers into a current value will
@@ -41,7 +41,7 @@ A modifier is four things:
 - A **target stat** — which stat it changes.
 - An **operation** — how it combines: `+` `−` `×` `÷` `override` `min` `max`.
 - A **value source** — a constant, or any evaluator magnitude (so "+1 attack per
-  level" is an authored formula, not code). See [evaluators.md](evaluators.md).
+  level" is an authored formula, not code). See [Evaluators](evaluators.md).
 - An **ordering** — a **phase** tag, then an order number, then insertion order.
 
 Ordering is what makes stacking predictable. Phases give you the classic structure
@@ -155,7 +155,7 @@ while it sits in a weapon slot, or a rune only while it is attuned. Toggle one o
 those tags and the grant reconciles on its own.
 
 Because grants ride the parent/child hierarchy, equipping and unequipping "just
-works" and undoes cleanly — see [entities-as-data.md](entities-as-data.md) for the
+works" and undoes cleanly — see [Entities Are Data](entities-as-data.md) for the
 hierarchy itself.
 
 ## Stat batches for bulk changes

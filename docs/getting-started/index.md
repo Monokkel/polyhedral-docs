@@ -38,7 +38,7 @@ layer everything else builds on.
 
 ## The path
 
-1. **[Installation](installation.md)** — add and enable the four Phase 1
+1. **[Installation](installation.md)** — add and enable the four core
    plugins, do the one-time schema setup, and confirm it compiles.
 2. **[Build Your First Board](first-board.md)** — the flagship tutorial: author
    entity templates, spawn them, store tagged data, make a command-driven stat
