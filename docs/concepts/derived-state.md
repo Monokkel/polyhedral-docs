@@ -50,7 +50,7 @@ A change-event listener may never change authoritative state — not directly, a
 !!! warning "Reactions to events are read-only, forever"
     Change events fire during undo and redo as well as forward play. A listener that mutated state would re-drive your rules while the game was trying to undo them. So change events are for **derived state and presentation only**.
 
-State-mutating reactions — "when damaged, retaliate" — are game rules. They belong to the event system's reaction mechanism, documented in a later section, not to change-event listeners.
+State-mutating reactions — "when damaged, retaliate" — are game rules. They belong to [reaction windows](events-and-reactions.md), the event system's reaction mechanism, not to change-event listeners.
 
 ## The pattern to copy
 
