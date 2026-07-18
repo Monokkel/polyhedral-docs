@@ -266,8 +266,8 @@ identical cues. Only the primary channel gates playout timing; auxiliaries are
 always fire-and-forget.
 
 The shipped building block for an auxiliary surface is `UPTkEntityWidget` — a
-`Blueprintable`, `Abstract` readout bound to one entity and one **facet** (a single
-`Stat.*` or `Data.*` value). It implements the token interface and the previewable
+`Blueprintable`, `Abstract` readout bound to one entity and one value (a single
+`Stat.*` or `Data.*` entry). It implements the token interface and the previewable
 capability, self-registers as an auxiliary channel on bind, and surfaces three
 paint hooks to Blueprint. You implement only the paint; the registry drives it.
 
@@ -305,8 +305,8 @@ its capabilities — not as a base paint event. The base gives you the snap
 (`OnStatDisplayChanged` / `OnTaggedDataDisplayChanged`) and the preview overlay
 (`OnPreviewDelta`); an animated beat rides the cue rails like any other.
 
-!!! tip "A presenter is a pattern, not a class"
-    There is no presenter class. A long-lived panel — a party frame, a character
+!!! tip "A panel is a pattern, not a class"
+    There is no dedicated panel or character-sheet base class. A long-lived panel — a party frame, a character
     sheet — is a plain container that holds several entity widgets and re-binds
     them to whichever unit is selected. Selection changes are just calls to
     `SetBoundEntity`. And a HUD readout is always an auxiliary channel, never a

@@ -30,9 +30,10 @@ load.
 === "C++"
     ```cpp
     // Author which token class visualizes this entity. Usually done in the
-    // data-table row; in code, write the presentation facet onto the template:
+    // data-table row; in code, set it as tagged data on the entity — an override
+    // that beats the template's value:
     FInstancedStruct TokenData = UPTkTokenSubsystem::MakeTokenClassData(BP_GoblinToken);
-    State->SetTaggedData(GoblinTemplate,
+    State->SetTaggedData(GoblinRef,
                          PTkTokenTags::TAG_Data_Presentation_TokenClass, TokenData);
 
     // From here the registry does the work. Creating the entity spawns its token;

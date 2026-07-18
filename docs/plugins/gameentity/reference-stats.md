@@ -327,7 +327,7 @@ struct FPGeGrantedModGroup
 };
 ```
 
-!!! important "The gate is a tag query on the carrier, not an evaluator condition"
+!!! important "The gate is a tag query on the granting entity, not an evaluator condition"
     `ActiveCondition` is a **gameplay-tag query matched against the carried (child)
     entity's own tags — including its slot tags** — not a general evaluator
     condition. Use it for "only while equipped in a `Slot.Weapon`" or "only while this
@@ -499,4 +499,4 @@ The relevant tag roots are `Stat.*` (stats), `StatPhase.*` (ordering phases),
 - [Evaluators plugin](../evaluators/index.md) and its [reference](../evaluators/reference.md) — magnitudes, pipelines, and the stat value type.
 - [Entity reference](reference-entities.md) — the lifecycle, hierarchy, and tagged-data API.
 - [Command reference](reference-commands.md) — the built-in stat commands and replay.
-- [CommandSystem plugin](../commandsystem/index.md) — the undo/redo substrate behind every write.
+- [CommandSystem plugin](../commandsystem/index.md) — the undo/redo engine behind every write.

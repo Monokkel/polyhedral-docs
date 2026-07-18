@@ -101,8 +101,8 @@ reads:
 
 A move preview is a **reachability** query: flood outward from the unit's cell,
 spending a budget, and collect every cell reachable within it. Costs are whole scaled
-integers — one straight step is **10**, a diagonal is **14** — so a "move 5" unit
-searches on a budget of **50**.
+integers — one straight step is **10** (a diagonal is **14** under the standard
+diagonal-cost modifier) — so a "move 5" unit searches on a budget of **50**.
 
 === "Blueprint"
     1. Call **Compute Reachability** from the unit's cell with **Max Cost** `50`.
