@@ -121,4 +121,8 @@ nav:
           - plugins/tokensystem/index.md
           - Guides: plugins/tokensystem/guides.md
           - API Reference: plugins/tokensystem/reference.md
+      - TurnSystem:
+          - plugins/turnsystem/index.md
+          - Guides: plugins/turnsystem/guides.md
+          - API Reference: plugins/turnsystem/reference.md
   - Community Guides: community/index.md
