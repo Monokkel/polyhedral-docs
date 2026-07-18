@@ -139,9 +139,9 @@ Undo, redo, and replay all work the same way: they re-run commands against recon
 
 Commands mutate *base* state only. Derived values — like resolved current stats — are never captured in a command; the framework recomputes them automatically afterward (see [derived-state.md](derived-state.md) and [stats-and-modifiers.md](stats-and-modifiers.md)). That boundary is exactly why rule 3 forbids reading derived caches inside `Apply`.
 
-The framework ships an automated test harness that exercises a command against these rules — applying, undoing, and redoing it and checking the state comes back byte-for-byte — so a command that honors the contract can be proven to honor it.
+The framework ships an [automated test harness](../plugins/commandsystem/reference.md#conformance-harness) that exercises a command against these rules — applying, undoing, and redoing it and checking the state comes back byte-for-byte — so a command that honors the contract can be proven to honor it.
 
-<!-- pluginlink: commandsystem-reference -->
+For the full command-stack API — transactions, the execution phase, stack events, and the correctness harness — see the [CommandSystem plugin reference](../plugins/commandsystem/reference.md).
 <!-- pluginlink: gameentity-reference -->
 
 *See it in action: the [first board tutorial](../getting-started/first-board.md) makes a stat change and wires up a working Undo button.*

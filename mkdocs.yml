@@ -75,4 +75,8 @@ nav:
           - plugins/taggeddata/index.md
           - Guides: plugins/taggeddata/guides.md
           - API Reference: plugins/taggeddata/reference.md
+      - CommandSystem:
+          - plugins/commandsystem/index.md
+          - Guides: plugins/commandsystem/guides.md
+          - API Reference: plugins/commandsystem/reference.md
   - Community Guides: community/index.md
