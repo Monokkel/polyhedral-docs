@@ -60,7 +60,8 @@ you are creating*, because the two can do different things:
   You don't register one at runtime the way you hook up a widget — the framework
   derives the live subscription from entity state. The full authoring surface for
   entity-carried rules listeners is documented in
-  [Abilities and step-by-step resolution](../../concepts/abilities-and-resolution.md#triggers-entity-carried-rules). <!-- pluginlink: abilitysystem-reference-triggers -->
+  [Abilities and step-by-step resolution](../../concepts/abilities-and-resolution.md#triggers-entity-carried-rules),
+  with the authoring API in [Authoring triggers](../abilitysystem/reference-triggers.md#authoring-triggers).
 
 !!! warning "Observers can never affect the outcome"
     An ordinary subscription — Blueprint or C++ — cannot block or reshape a
@@ -71,7 +72,8 @@ you are creating*, because the two can do different things:
     C++ path to a rules listener today, shown in the
     [guides](guides.md#react-to-a-change-with-a-reaction-window); the durable,
     entity-carried surface is documented in
-    [Abilities and step-by-step resolution](../../concepts/abilities-and-resolution.md#triggers-entity-carried-rules). <!-- pluginlink: abilitysystem-reference-triggers -->
+    [Abilities and step-by-step resolution](../../concepts/abilities-and-resolution.md#triggers-entity-carried-rules),
+    and its authoring API in [Authoring triggers](../abilitysystem/reference-triggers.md#authoring-triggers).
 
 ## The pieces at a glance
 
