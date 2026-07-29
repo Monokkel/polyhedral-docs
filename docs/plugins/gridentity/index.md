@@ -1,10 +1,12 @@
 # GridEntity
 
 For developers who have units in a game state and a board in the world, and now
-need the two to meet: a unit that *stands on a cell*, moves there undoably, and can
-be asked "who else is here?" After this section you'll know how a unit's position is
-stored, how the "who is on this cell" index is kept correct for free, how per-unit
-movement is run against the live board, and how the on-screen mini follows along.
+need the two to meet: a unit that *stands on a cell*, faces a direction, may cover
+four cells at once, moves there undoably, and can be asked "who else is here?" After
+this section you'll know how a unit's position, facing, and shape are stored, how the
+"who is on this cell" index is kept correct for free, how per-unit movement is run
+against the live board, where a rule can interject mid-step, and how the on-screen
+mini follows along.
 
 GridEntity is the one plugin where the **grid system** and the **entity system**
 meet. On one side sits [GameEntity](../gameentity/index.md): value-struct entities
@@ -33,6 +35,13 @@ GridEntity supplies exactly that missing half:
   unit's cell is stored as tagged data on the entity, written through a command — so
   moving a unit undoes, saves, and replays with the rest of game state, with no extra
   machinery.
+- **A unit faces a direction, and "behind" is a real question.** The same placement
+  data carries a logical orientation, so turning undoes like moving — and a ready-made
+  condition answers "is this attacker in my rear arc?" for backstab, flanking, and
+  shield-arc rules.
+- **A unit can cover more than one cell.** A shape authored on the template makes a
+  2&times;2 golem occupy four cells and rotate honestly, with the "does it fit?" gate
+  folded into movement automatically.
 - **"Who is on this cell" gets an answer.** A derived index, rebuilt reactively from
   the same placement data, reports a cell's occupants — correct through undo and load,
   with nothing of its own to save.
@@ -40,9 +49,13 @@ GridEntity supplies exactly that missing half:
   profile; GridEntity reads the unit's granted capabilities, snapshots its stats, and
   runs the board search — feeding the live occupancy back in so a unit's reach
   respects who is standing where.
+- **A move has moments a rule can interject at.** Each step of a rule-relevant move
+  offers a declaration moment and a commit moment, so a trap springs, overwatch fires,
+  or a wall of force refuses entry — and a board edit that removes cells out from under
+  units is one vetoable, undoable step.
 - **The mini follows on its own.** A grid-aware presentation token derives its world
-  position from the unit's placement and walks the path on a move — no per-move
-  positioning code.
+  position from the unit's placement, walks the path on a move, and turns in place on a
+  facing change — no per-move positioning code.
 
 ## Where it fits in the framework
 
@@ -70,8 +83,12 @@ and only pull this plugin in where the two must actually meet.
 
 | Piece | What it is |
 |---|---|
-| `UPGxPlacementLibrary` | Static functions to create a unit already standing on a cell, and to move it — each riding a GameEntity command, so each is undoable. |
-| `Data.Placement.*` tags | The tagged-data keys a unit's position is stored under: `Data.Placement.Cell` on a grid, `Data.Placement.World` off it. |
+| `UPGxPlacementLibrary` | Static functions to create a unit already standing on a cell, and to move, turn, and reshape it — each riding a GameEntity command, so each is undoable. |
+| `Data.Placement.*` tags | The tagged-data keys a unit's position and shape are stored under: `Data.Placement.Cell` on a grid, `Data.Placement.World` off it, `Data.Placement.Footprint` for a multi-cell shape. |
+| `UPGxFacingLibrary` | Which way a unit faces, and which arc — front, flank, rear — an observer falls in. Plus the drop-in "attacked from behind" condition. |
+| `FPGxFootprint` | The optional multi-cell shape, authored on a template: anchor-relative offsets that rotate with the unit. |
+| `UPGxMovementWindowLibrary` | The per-step moments a rule interjects at, the fact they carry, and the "end this move now" lever. |
+| `UPGxStructuralWindowLibrary` | The one door for removing board cells that units may be standing on: vetoable, one undo step, with a displacement signal per unit. |
 | `UPGxOccupancySubsystem` | The derived cell&nbsp;&rarr;&nbsp;entities index. Ask it who is on a cell; it reconciles itself from change events and stays correct through undo. |
 | `UPGxMovementLibrary` | Static functions to grant/revoke a unit's movement capabilities and to compute its reachability and paths against the live board. |
 | `Data.Movement.*` tags | The tagged-data keys a unit's movement sources and cost modifiers are granted under. |
@@ -82,11 +99,17 @@ and only pull this plugin in where the two must actually meet.
 ## Where to go next
 
 - **[Guides](guides.md)** — task recipes: place a unit born on a cell, move it (and
-  wrap the move when it also spends a movement point), query who is on a cell, grant
-  and revoke a movement capability, and show a unit with a grid token.
-- **[API Reference](reference.md)** — the full public surface grouped by area:
-  placement, occupancy, movement, the board view, the grid token, and selection
-  visualization.
+  wrap the move when it also spends a movement point), place and rotate a multi-cell
+  unit, react when a unit is attacked from behind, query who is on a cell, grant and
+  revoke a movement capability, and show a unit with a grid token.
+- **[API Reference](reference.md)** — the core public surface: placement, occupancy,
+  movement, the board view, the grid token, and selection visualization.
+- **[Facing & Arcs](reference-facing.md)** — logical facing, the front/flank/rear
+  split and how to retune it, and the ready-made backstab condition.
+- **[Footprints](reference-footprints.md)** — units on more than one cell: authoring a
+  shape, rotating it, the two movement gates, and the "may it stand here?" check.
+- **[Movement & Structural Windows](reference-windows.md)** — the per-step moments a
+  rule interjects at, and how a board edit that displaces units is submitted.
 - **[Grids & Occupancy](../../concepts/grids-and-occupancy.md)** — the model and the
   reasoning behind placement, per-unit movement, and the occupancy index.
 - **[Derived State & Events](../../concepts/derived-state.md)** — the reactive

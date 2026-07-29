@@ -1,8 +1,10 @@
 # GridEntity Guides
 
-For developers with the plugin enabled who want to get a unit onto the board and
-moving. Each section is a short, followable recipe. For the full type-by-type
-surface see the [API Reference](reference.md); for the model behind it all see
+For developers with the plugin enabled who want to get a unit onto the board, facing
+the right way, and moving. Each section is a short, followable recipe. For the full
+type-by-type surface see the [API Reference](reference.md) and its companion pages on
+[Facing & Arcs](reference-facing.md), [Footprints](reference-footprints.md), and
+[Movement & Structural Windows](reference-windows.md); for the model behind it all see
 [Grids & Occupancy](../../concepts/grids-and-occupancy.md).
 
 Every recipe assumes you already have a [board](../gridgraph/index.md) in the world
@@ -83,6 +85,110 @@ single **Undo** to reverse the whole thing — so wrap the two steps in a
     You get exactly one undo entry for the whole move — the reposition and the point,
     reversed together. Transactions are covered in full in the
     [CommandSystem guides](../commandsystem/guides.md#group-changes-into-one-undo-step-with-a-transaction).
+
+## Place and rotate a multi-cell unit
+
+A 2&times;2 golem is still a unit standing at **one** anchor cell; what makes it big is
+a **footprint** — a list of anchor-relative offsets authored on its template. The
+offsets are unrotated, and the unit's rotation step turns them, so one authored shape
+covers every orientation.
+
+=== "Blueprint"
+    1. In the golem's data-table row, add a **Tagged Data** entry keyed
+       `Data.Placement.Footprint`. Fill **Offsets** with `(0,0,0)`, `(1,0,0)`,
+       `(0,1,0)`, `(1,1,0)` — the anchor cell included, because it is **not** implicit.
+    2. Create it with **Create Entity At Cell Oriented**, passing the anchor **Cell**
+       and a **Rotation Steps** value. It is born big *and* oriented in one undoable
+       step — never briefly facing the wrong way.
+    3. To turn it, first call **Can Entity Stand At** with its **current** anchor and
+       the **new** rotation step. Only on true, call **Rotate Entity In Place**.
+    4. To move and turn together, use **Move Entity To Cell Oriented** — one command,
+       one **Undo**, and the unit is never observable half-turned.
+
+=== "C++"
+    ```cpp
+    // Born big and already oriented — one command, one undo step.
+    FPGeEntityRef Golem = UPGxPlacementLibrary::CreateEntityAtCellOriented(
+        this, /*TemplateId=*/"Golem", AnchorCell, /*RotationSteps=*/1, FRotator::ZeroRotator);
+
+    // Turning changes which cells it covers, so ASK before you turn.
+    if (UPGxPlacementLibrary::CanEntityStandAt(this, Golem, AnchorCell, /*RotationSteps=*/2,
+            SeveringTags))
+    {
+        UPGxPlacementLibrary::RotateEntityInPlace(this, Golem, 2);
+    }
+
+    // Which cells does it cover right now?
+    TArray<FGridNodeHandle> Covered =
+        UPGxOccupancySubsystem::Get(this)->GetCellsOfEntity(Golem);
+    ```
+
+Movement needs nothing extra: the "does the whole shape land on real cells?" gate is
+injected into **Compute Entity Reachability** and **Find Entity Movement Path** for you
+whenever the mover has a shape, so the golem simply cannot path to an anchor where a
+corner of it would hang off the board. If your board has thin walls and a long unit
+must not straddle them, grant the cohesion gate once, on spawn:
+
+```cpp
+// Opt-in wall cohesion. You pass POLICY only — the unit's own offsets are filled in
+// at query time. Undoable like any grant.
+UPGxMovementLibrary::GrantFootprintConnected(
+    this, Golem, /*SeveringEdgeTags=*/ClosedDoorTags, /*GrantSource=*/FPGeEntityRef());
+```
+
+!!! warning "The legality check is yours to call"
+    **Can Entity Stand At** is a check, not a guard. The placement calls write what you
+    tell them, so a teleport, a push, or a rotation that skips the check *can* leave a
+    golem hanging off the board. Call it at every door a unit can arrive through —
+    spawn, teleport, push, swap, rotate. Movement is the exception: the gates run
+    inside the search. The full model is in
+    [Footprints](reference-footprints.md).
+
+## React when a unit is attacked from behind
+
+Facing is placement data, so "which way am I pointing?" undoes and replays like
+position — and "is that attacker behind me?" is a single query. The most common use is
+a backstab bonus, and the framework ships the condition for it.
+
+=== "Blueprint"
+    1. Decide when units turn — the framework never turns them for you. A simple rule:
+       on a completed attack or move, call **Face Entity Towards Cell** with the cell
+       the unit should look at.
+    2. In the attack's damage magnitude, add a **Conditional** magnitude calc and set
+       its condition to **Observer In Facing Arc**.
+    3. Leave the defaults: the **Defender Source** is the target, the **Observer
+       Source** is the owner, and the **Required Arc** is `Arc.Rear`. That is already
+       "the attacker is behind the target".
+    4. Point the true branch at your bonus damage. Nothing else in the ability needs to
+       know about facing, and a granted buff gated on the same condition re-evaluates by
+       itself when either unit turns.
+    5. For a UI hint before the player commits, call **Is Observer In Arc** on hover —
+       it uses the same classification the rule does, so the hint can never lie.
+
+=== "C++"
+    ```cpp
+    // Turning is your game's policy — here, a unit faces what it attacks.
+    UPGxFacingLibrary::FaceEntityTowardsCell(this, Attacker, TargetCell);
+
+    // The direct question, for a UI hint or a hand-written rule.
+    const bool bFromBehind = UPGxFacingLibrary::IsObserverInArc(
+        this, /*Defender=*/Target, /*Observer=*/Attacker, PGxFacingTags::TAG_Arc_Rear);
+
+    // Or let the shipped condition do it inside a damage magnitude — its defaults
+    // are already the backstab case.
+    FPGxCondCalc_ObserverInArc FromBehind;
+    ```
+
+How wide "behind" is, is your call: set **Default Arc Bands By Step Count** under
+**Project Settings &rarr; Plugins &rarr; Polyhedral Grid Entity** for the whole game,
+or give one unit its own arcs with a `Data.Placement.ArcBands` entry on its template —
+a shield-wall soldier with a very wide front. See
+[Facing & Arcs](reference-facing.md#arc-bands-how-the-space-is-divided).
+
+!!! tip "Multi-cell attackers are judged by the part that is near you"
+    An entity observer is represented by whichever of its covered cells is nearest the
+    defender — so a dragon striking with its head is classified by its head, not by a
+    distant anchor cell. You get that for free; there is nothing to configure.
 
 ## Query who is on a cell
 

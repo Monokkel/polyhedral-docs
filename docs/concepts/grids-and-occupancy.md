@@ -4,8 +4,9 @@ For developers building a board — square, hex, or freeform; flat or multi-stor
 who need "where is everything?" and "where can this unit go?" answered correctly
 through undo, save, and replay. After reading, you'll know how the grid is generated
 and what it stores, the difference between a shape query and a movement query, how
-per-unit movement is assembled from data, and how entities stand on and move across
-the board.
+per-unit movement is assembled from data, how entities stand on and move across
+the board, and what happens when the board itself is dug, collapsed, or built up
+mid-game.
 
 One idea carries this whole page: **the grid is a static stage. Everything per-unit
 and per-moment is a query, never a property of the map.** A connection between two
@@ -26,10 +27,14 @@ where each cell sits in the world:
   are whatever you wire by hand.
 
 The graph stores only durable facts: the cells, the connections between them, per-cell
-heights, and gameplay tags on cells and connections. It is *not* touched as units move.
-Structural edits — severing a bridge, opening a permanent shortcut — are rare and
-deliberate, not part of ordinary play. That stability is what lets the same board hash,
-save, and rewind identically.
+heights, and gameplay tags on cells and connections. It is *not* touched as units move —
+a unit's position is data on the unit, never a mark on the map.
+
+The board's *structure*, though, is allowed to change during play: a tunnel is dug, a
+bridge collapses, a city grows tile by tile. What keeps such a board correct is not that
+edits are rare — it is that **every structural edit is a command**, on the same stack as
+everything else, so a change to the board rewinds with the action that caused it. See
+[When the board itself changes](#when-the-board-itself-changes) at the end of this page.
 
 !!! note "Freeform boards still answer the important questions"
     A freeform graph has no coordinates, so shape queries that need coordinate math
@@ -229,6 +234,48 @@ something you wire per move; see [Tokens & Cues](tokens-and-cues.md).
 
 For the full placement API — create-at-cell, move-to-cell, and how a move joins your transaction — see [Placement](../plugins/gridentity/reference.md#placement) in the GridEntity reference; to move units step by step, follow [Move units on the board](../plugins/gridentity/guides.md#move-units-on-the-board) in the guides.
 
+## Bigger than one cell, and pointing somewhere
+
+Two things ride along with placement, and both follow the same rule: they are entity data,
+so they undo, save, and replay exactly like position does.
+
+**A footprint** is the set of cells a unit covers — a 2×2 ogre, a 1×3 siege engine. It is
+authored on the [template](entities-as-data.md), as offsets from an anchor cell, and every
+instance inherits it until one overrides. Because the offsets are relative, a unit that
+turns carries its shape around with it.
+
+**Facing** is which way the unit is pointing, stored as a whole number of rotation
+**steps** — four on a square board, six on a hex — never as an angle. Whole steps are what
+make facing exact: there is no float to drift between two machines or between a live run
+and its replay. The space around a facing unit divides into **arcs** — front, flank, rear —
+which is all a backstab rule needs to ask.
+
+Turning a unit rotates its footprint offsets by the same steps, and the framework guarantees
+the coordinate math and the visible transform agree: rotating the offsets by *k* steps gives
+the same cells as yaw-rotating the world positions by *k* step-angles. A rotated shape never
+drifts from what the player sees.
+
+Two questions follow from a shape, and they are genuinely different:
+
+- **Does it fit?** Do all the covered cells exist on the board?
+- **Does it hold together?** Is the covered set one connected body, or has a wall split it
+  so the unit would straddle a chasm?
+
+Both are answered for you, and the framework combines them into a single "can this unit
+stand here?" check.
+
+!!! warning "That check is a convention, not a guard"
+    The placement calls do **not** run it for you — a game that skips it can place a
+    four-cell unit into a cell it does not fit. Movement is the exception: the fit test is
+    injected into every movement query automatically, so a unit can never *walk* somewhere
+    its shape doesn't go. It is placing and spawning where you have to ask.
+
+A freeform board has no coordinates and a single rotation step, so footprints and facing
+don't apply there.
+
+See [Facing & Arcs](../plugins/gridentity/reference-facing.md) and
+[Footprints](../plugins/gridentity/reference-footprints.md) in the GridEntity reference.
+
 ## Occupancy: who is on this cell
 
 The reverse question — "who is standing here?" — is a **derived index**, not stored truth.
@@ -241,6 +288,11 @@ The index is multi-occupant, and a cell's entities come back in a deterministic 
 by ascending entity id, i.e. creation order — so a query gives the same list in live play,
 after an undo, and in a replay. And it only ever *reports*. It never decides whether a move
 is legal.
+
+It runs both ways, and the reverse direction is a **set**: a footprinted unit is on every
+cell it covers, not just its anchor. Ask "which cells is this entity on?" rather than
+assuming one, and "is this entity on this cell?" when that is the actual question — a 2×2
+unit answers yes for four different cells.
 
 !!! tip "Occupancy reports; your game adjudicates"
     Capacity, blocking, and stacking are your game's rules, not the index's. Write them two
@@ -263,3 +315,84 @@ is legal.
     ```
 
 For the full occupancy API — listing a cell's entities and the order they come back in — see [Occupancy](../plugins/gridentity/reference.md#occupancy) in the GridEntity reference.
+
+## When the board itself changes
+
+The stage is static about *passability* — a connection never says "this unit may pass" —
+but it is not frozen. Games dig tunnels, drop bridges, and let players build. So the
+board's structure gets the same treatment every other piece of game state gets: **it is
+changed through commands.**
+
+Adding or removing a cell, adding or removing a connection, tagging either, changing a
+cell's height, overriding a connection's cost — each is a command on the same stack as
+the entity commands. That single fact is what makes a mutable board safe:
+
+- Undo an action that dug a tunnel *and* walked a unit through it, and tunnel and unit
+  rewind together, in the right order. There are no two histories to reconcile.
+- A replay reproduces the dug board exactly, because the dig is in the log like anything
+  else.
+- Everything downstream — occupancy, tokens, visualizers — is told what changed, on the
+  way forward and on the way back.
+
+A tool wants one more thing: a whole brush stroke of edits — nine cells dragged over —
+should be **one** press of undo, not nine. Wrapping the edits in a transaction gives
+exactly that, the same way wrapping a move and its movement-point spend does.
+
+=== "Blueprint"
+    - Call **Submit Grid Command** with a structural command to change the board.
+    - Wrap several in **Begin Transaction** / **Commit Transaction** on the command
+      stack so the whole stroke is one undo step.
+    - **Is Board Authoring Allowed** tells a tool button whether a wholesale re-conform
+      of the board is legal right now.
+
+=== "C++"
+    ```cpp
+    // One brush stroke: N edits, one undo unit.
+    {
+        FPGcGridTransactionScope Stroke(Stack, Grid, TEXT("Dig tunnel"));
+
+        FPGcCmd_AddNode Add;
+        Add.bHasCoord = true;
+        Add.Coord     = FIntVector(4, 0, 0);
+        UPGcGridCommandLibrary::SubmitGridCommand(this, FInstancedStruct::Make(Add));
+        // ...more edits...
+    }
+
+    Stack->Undo();   // the whole stroke rewinds
+    ```
+
+### A unit whose cell no longer exists
+
+Remove a cell someone is standing on and that unit's placement becomes **dangling**: it
+names a cell that is not there any more. This is a legal state, not a corruption, and the
+framework is careful about it in three separate ways.
+
+**It is always detectable.** Cell handles are never renumbered and never recycled, so a
+dangling reference can never quietly come to mean some *other* cell that was created
+later. It either names the cell it always named or names nothing — there is no third
+possibility, and no version stamp needed to tell them apart.
+
+**Occupancy drops it, and says who was affected.** The "who is on this cell" index
+reconciles from the change like it reconciles from everything else: a placement it can no
+longer resolve simply leaves the index, and each unit whose cell vanished is *reported* as
+displaced. Your rules and your presentation layer can both listen for that.
+
+**Undo heals it.** Undoing the removal makes the old placement valid again, with zero
+compensating writes — nobody has to remember where the unit used to be, because nothing
+ever overwrote it. That is the payoff for treating the board edit as a command rather than
+as a special case.
+
+!!! warning "The framework reports displacement; it never decides where a unit goes"
+    Teleport the unit to the nearest safe cell? Kill it? Leave it dangling until the
+    player resolves it? Those are your game's rules, and the framework deliberately
+    declines to pick one — it hands you the fact that a unit's cell is gone and gets out
+    of the way. Write the answer as an ordinary rule that reacts to the displacement, and
+    it will undo with everything else.
+
+    GridEntity's cell-removal call wraps the whole thing for you: rules get a chance to
+    veto the removal *before* it happens, each affected unit gets a signal after it, and
+    the behaviour is identical in live play and inside a what-if run.
+
+For the structural editing API — the command family, brush-stroke transactions, and the
+change notification a custom visualizer subscribes to — see the
+[GridCommands](../plugins/gridcommands/index.md) plugin section.
