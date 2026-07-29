@@ -141,7 +141,7 @@ It works because [the entire game is one value of plain data](entities-as-data.m
 
 - **Hover previews.** Hovering an enemy answers Mind Bomb's pending decision point on a throwaway copy; the predicted deltas feed the [preview surfaces and ghosts](tokens-and-cues.md#previews-ride-the-same-rails) the presentation page left waiting — the health bars that paint the red band they *would* lose.
 - **Availability.** The cheap per-frame button check just evaluates the ability's declared use conditions — and can name exactly *which* condition failed, so a greyed button gets a real tooltip. The heavier on-click check runs a what-if forward to the first decision point, confirming a legal target actually exists before committing the player to targeting.
-- **Enemy AI.** The AI tries each candidate action on a throwaway copy, scores the outcome, telegraphs its chosen action through the *same* preview overlay a player hover uses, then plays it for real. While it is deliberating, player input is held so the board cannot change under it. The deliberate-telegraph-commit loop runs out of the box with a content-neutral scorer; teaching the AI your game's own judgment of a good move is a small piece of C++.
+- **Enemy AI.** The AI tries each candidate action on a throwaway copy, scores the outcome, telegraphs its chosen action through the *same* preview overlay a player hover uses, then plays it for real. While it is deliberating, player input is held so the board cannot change under it. What the AI *values* about each outcome is itself authored as data — the next section.
 
 !!! tip "Repeat-stable rolls"
     Random rolls are keyed to the game state and to the step making them. So a replay reproduces every roll exactly, re-trying the same action can't fish for a better one, and the AI samples its *own* separate stream — it reasons over the odds, never over the specific roll you are about to get.
@@ -171,6 +171,28 @@ It works because [the entire game is one value of plain data](entities-as-data.m
     Session->PreviewGateInput(Caster, MindBomb, HoveredTarget);
     Session->ClearGateInputPreview();
     ```
+
+## Judgment is data, the same as everything else
+
+The throwaway copy tells the AI *what would happen* if the goblin cast Mind Bomb at that zone. It says nothing about whether that is a good idea. Turning an outcome into a number is the AI's judgment — and it is authored the same way the ability was: as data on a row.
+
+A **consideration** is one axis of that judgment. It names a thing to measure about the outcome, an optional curve to shape the raw measurement, and how much it matters. The goblin's judgment of Mind Bomb is three of them: *"how much health did I take off the player's side?"*, *"how much did I take off my own?"* (weighted negative — that is how a cost is priced), and *"how exposed would I be standing there afterwards?"*.
+
+The first two **add**. The third **multiplies** — it is a mask between 0 and 1, and zero is a veto. Every consideration is one or the other, and none of them may declare that it applies "after" another. That restriction is the whole point. Considerations arrive from the unit's own row, from the ability being weighed, from a buff and from an item, in no particular order — so the score is built to be *the same number whichever order they arrive in*. A profile you can read is a profile you can predict, and predictable AI is debuggable AI.
+
+What the measurements read is the throwaway copy, from both sides: the world if the goblin does nothing, the world as the trial left it, and — the one that usually matters — **the difference between them**. "Mind Bomb takes 34 health off the player's side" is a difference. "The player has 34 health" is a fact that says nothing about whether casting was worthwhile.
+
+Two things make this hold together as *content* rather than as a pile of numbers:
+
+- **Reuse.** Considerations live in a shared asset — your game's vocabulary of judgment, granted to a unit as a bundle. Every goblin thinks the same way; the archetype grants the set once.
+- **Temperament without duplication.** A **disposition** is an ordinary stat under `Stat.AI.*` — `Stat.AI.Aggression`, say — that scales any consideration naming it. One reckless goblin and one cautious one share the same considerations and differ by a stat. Because it is an ordinary stat, everything stats already do comes free: a rage buff is `+50 Aggression` that expires, a "Pacify" spell is a negative modifier, and both are undoable, saveable, replayable changes like any other. The framework mints no axes of its own — an "Aggression" the framework defined would be your game's content wearing a framework's clothes.
+
+An enemy carrying no profile is scored by a deliberately content-neutral stand-in (roughly: harm inflicted on units other than itself), so this is opt-in, not a migration. And a game whose judgment genuinely needs code can still take scoring over wholesale in C++ — but that is now the escape hatch, not the starting point.
+
+The authoring surface is in [Enemy AI: Considerations & Profiles](../plugins/abilitysystem/reference-ai.md); the loop that consumes it is in [Previews, AI & What-Ifs](../plugins/abilitysystem/reference-previews.md#enemy-ai).
+
+!!! tip "You can watch it think"
+    A console setting captures every candidate's score with its per-consideration arithmetic, and a console command prints the last deliberation's breakdown — raw value, curved value, contribution, and which disposition scaled it. When an enemy does something baffling, that table is the answer, and it is almost always one consideration out of scale.
 
 ## From committed change to the screen
 
@@ -226,6 +248,6 @@ One rule governs a step's body, and everything else depends on it: **a step touc
 
 ## Where this goes next
 
-The AbilitySystem plugin section owns the mechanics this page kept at arm's length: the exact editor nodes, the full step-and-program reference, the trigger-authoring recipes, the targeting-session API and its grid wiring, the hover-preview calls, the automatic playout layer, and the AI hooks. It is documented in the [AbilitySystem plugin section](../plugins/abilitysystem/index.md).
+The AbilitySystem plugin section owns the mechanics this page kept at arm's length: the exact editor nodes, the full step-and-program reference, the trigger-authoring recipes, the targeting-session API and its grid wiring, the hover-preview calls, the automatic playout layer, and both halves of the AI — the loop, and the considerations that feed it. It is documented in the [AbilitySystem plugin section](../plugins/abilitysystem/index.md).
 
 Once the Getting Started arc lands, it will wire a first ability end-to-end — grant it, activate it, add a trigger, and preview it on hover — as a single worked slice, tying every idea on this page back to a running game.

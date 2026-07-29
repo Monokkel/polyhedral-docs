@@ -95,7 +95,7 @@ three read a field or two.
 | **Owner** | the ability entity's hierarchical owner (the unit wielding it), falling back to the caller |
 | **Caller** | the activating unit, as one entity target |
 | **Ability** | the ability entity itself, as one entity target |
-| **Lookback (ABM Handle)** | a *specific* earlier step's results or forwarded list, by a stable handle |
+| **Lookback (ABM Handle)** | a *specific* earlier step's results or forwarded list, by a stable handle (the dropdown spells "ability module" as an acronym in this one entry) |
 | **Reachable Cells** | the mover's cost-aware reachable cells — a move ability's candidate cells |
 | **Grid Circle Occupants** | the entities within N grid-hops of an anchor — a ranged attack's candidates |
 
@@ -348,7 +348,9 @@ fights the screen.
 When a decision point suspends, the subsystem publishes exactly **one** decision request
 at a time and announces it. Whatever supplies the answer — the player's UI in real play, a
 hovered target in a preview, the AI's candidate during deliberation — answers through the
-same three verbs.
+same three verbs. (On the AI's side, *which* candidate it answers with is the one its
+[AI profile](reference-ai.md) scored highest; the bound on how many candidates a single
+decision point offers it is a [project setting](reference-tooling.md#project-settings).)
 
 ```cpp
 // Answer the published request with the chosen target(s). Rejected (false) if the handle
@@ -593,6 +595,8 @@ marker step uses, not something you call.
 
 For the presenters, themes, and channels that render those cells, see
 [Visualization](../gridgraph/reference-visualization.md). For hover previews, availability
-what-ifs, and enemy AI, see [Previews, AI & What-Ifs](reference-previews.md). For the
-programs, steps, and target-list model these targets flow through, see
+what-ifs, and the AI loop, see [Previews, AI & What-Ifs](reference-previews.md); for
+authoring what the AI *values*, see
+[Enemy AI: Considerations & Profiles](reference-ai.md). For the programs, steps, and
+target-list model these targets flow through, see
 [Programs, Modules & Custom Steps](reference-programs.md).

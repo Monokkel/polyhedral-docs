@@ -2,9 +2,9 @@
 
 For developers configuring the plugin, looking up its gameplay tags, or leaning on
 its author-time safety tools. After reading you'll know every native tag the ability
-system owns, the three project-settings knobs that bound its what-if and AI work, and
-the linter, the Validate Ability action, and the two authoring nodes that catch
-mistakes before they reach play.
+system owns, the three project-settings knobs that bound its what-if and AI work, the
+linters, the Validate Ability action, the two authoring nodes that catch mistakes
+before they reach play, and the console surface for troubleshooting.
 
 This is appendix and reference material for the rest of the section — for the model
 behind it, see [Abilities and step-by-step resolution](../../concepts/abilities-and-resolution.md#authoring-and-safety-rails).
@@ -25,6 +25,13 @@ carry any of them: a sword, a status effect, and a spell all use the same keys.
 | `Data.Ability.Triggers` | `FPAbTriggerList` | The [entity-carried triggers](reference-triggers.md) this entity listens on — its reactive entry, zero or more trigger specs. |
 | `Data.Ability.Intent` | `FPAbAbilityIntent` | An optional presentation intent that tells the [automatic playout layer](reference-previews.md#the-automatic-playout-layer) how to group this activation's cues. When absent, cues default to the generic `Action` floor below. |
 
+A sixth tagged-data key belongs to the AI rather than to ability behavior, and *any*
+entity may carry it — a unit, an ability, a buff:
+
+| Tag | Value struct | What it carries |
+|---|---|---|
+| `Data.AI.Profile` | `FPAbAiProfileFacet` | The bundle of consideration grants that make up the entity's [AI profile](reference-ai.md) — the judgment the enemy AI scores candidate actions with. The plugin registers this key's type into the tagged-data schema at startup, so a mistyped write is refused rather than stored. |
+
 The remaining native tags are not data keys — they are shared markers the runtime
 sets or reads:
 
@@ -32,6 +39,8 @@ sets or reads:
 |---|---|
 | `Eval.Source.Ability` | An evaluator-context source: lets a step's magnitude or condition read the stats of the *ability* entity itself, not just its caster. |
 | `Eval.Source.Instigator` | An evaluator-context source made available when a trigger's condition is evaluated — the entity that instigated the event the trigger is answering. |
+| `Eval.Source.Score` | An evaluator-context source available only while the AI scores one candidate action: the read surface a [consideration's feature](reference-ai.md#how-a-candidate-is-scored) measures. Unlike the other two it is not entity-shaped — it answers about a whole candidate. |
+| `Stat.AI` | The **root** of the AI disposition-axis namespace. It is never itself an axis and never read as a stat; a game mints its own axes beneath it (`Stat.AI.Aggression`, …) as ordinary base stats. See [disposition axes](reference-ai.md#disposition-axes). |
 | `State.RemovedFromGame` | A marker a step applies the instant a rule removes an entity from play. Targeting and effect filters exclude it immediately, while the structural removal commits at a stable point in resolution. Ordinary death (a `dead` stat or tag) is separate content; this marks the distinct "a rule genuinely takes it off the board" path. |
 | `Action` | The root of the presentation-intent namespace and the floor an activation's cues default to when it carries no `Data.Ability.Intent`. |
 
@@ -62,6 +71,9 @@ write would desync a run from what a replay or an automated check assumed).
 | `MaxCandidatesPerGate` | `16` | The most target candidates the AI will weigh at one decision point while trying an ability on its turn. If a decision point offers more candidates than this, the surplus is dropped and the clip is logged (never silently). Raise it when your content needs the AI to consider a wider fan of targets. |
 | `DefaultAiScoringSamples` | `1` | How many times the AI re-runs a candidate action to average its outcome. `1` is exact for abilities with no random rolls — every run coincides. Raise it for abilities whose outcome varies with rolls, so the AI scores the expected outcome rather than one sampled roll. (The AI always samples its own separate stream — never the roll your activation will actually get.) |
 
+The last two bound the AI's deliberation; what it *values* about each candidate is
+authored per entity as an [AI profile](reference-ai.md), not configured here.
+
 !!! note "The config you author against is stable"
     The data structs a project authors against — these settings, the entry value
     structs above, trigger specs, and step configuration — ship as a versioned
@@ -89,14 +101,25 @@ The stable check ids are the reference material:
 | `DuplicateHandle` | Two steps in the same program share the same identifier, so a later step that reads one back can't tell them apart. |
 | `CyclicSubProgram` | A nested sub-program references a program that (transitively) contains it — an endless nesting loop. |
 | `BothProgramRefSet` | A program reference authored with both a program *class* and a program *asset* set. The class always wins at runtime; this is advisory only. |
+| `MisconfiguredSubProgram` | A nested sub-program step that cannot build a body at all — neither a referenced program nor an inline sub-chain resolves — which aborts the activation when it is reached. |
 
-!!! note "Two checks await Blueprint step bodies"
-    Two further check ids — `BannedNode` (a step body calling something outside the
-    one authoring rule) and `BespokeHalt` (a bespoke pause with no matching
-    live-vs-preview branch) — scan Blueprint-authored *step bodies*. No Blueprint step
-    bodies ship yet, so these two are currently inert. They are a forward provision for
-    when that authoring path arrives; today's steps are covered by the structural
-    checks above plus loud development-build checks at run time.
+!!! note "Two checks scan Blueprint step bodies"
+    Two further check ids — `BannedNode` and `BespokeHalt` — scan the *body* of a
+    step authored in Blueprint, which the structural checks above cannot see.
+    `BannedNode` flags a call outside the one authoring rule: drawing from a
+    sequential random source, or mutating the grid directly instead of through the
+    sanctioned command-routed door. `BespokeHalt` flags a bespoke pause with no
+    matching live-versus-preview branch. C++ step bodies are not scanned; they are
+    covered by loud development-build checks at run time instead.
+
+### The AI profile linter
+
+A second, separate linter checks **AI profiles** — considerations whose weight makes
+them inert, features with no bounded range, and disposition axes that will always
+read neutral. It emits the same finding shape and registers its check ids in the same
+registry, but it is **not** part of Validate Ability and has no editor entry point of
+its own. Its three checks and the C++ calls that run it are documented in
+[Enemy AI: Considerations & Profiles](reference-ai.md#checking-a-profile-the-linter).
 
 ## Validate Ability
 
@@ -119,37 +142,59 @@ divergence — usually a sign it needs a real caller or fixture to run.
 Only **Diverged** and linter findings of warning severity or higher count as
 problems the report calls out.
 
+!!! note "Validate Ability does not check AI profiles"
+    It runs the *program* linter and the consistency harness. The
+    [AI profile linter](reference-ai.md#checking-a-profile-the-linter) is a separate,
+    headless check with no editor action — right-clicking a consideration set does
+    nothing.
+
 ## Authoring nodes
 
 Two Blueprint nodes author steps. Both build a step instance from a chosen Ability
 Module class, set its configuration from the node's pins, and then differ only in what
-they do with it. Under the hood they expand into the `UPAbAbilityStatics` function
-library — you rarely wire that library by hand.
+they do with it. Find them in the palette under the **Ability | Authoring** category.
+Under the hood they expand into the `UPAbAbilityStatics` function library — you rarely
+wire that library by hand.
 
-!!! note "Finding these nodes in the palette"
-    In the Blueprint node palette these two nodes currently appear as **Add ABM** and
-    **Run ABM** (and **Add ABM: &lt;ClassName&gt;** / **Run ABM: &lt;ClassName&gt;** once you
-    pick a step class) — the same two nodes described here.
-
-- **Add Module** — used *inside* a program's build graph. It emits a step into the
-  program's list; it does **not** run the step. Its Builder pin must be connected to
-  the build graph's program builder (an unconnected Builder is a hard compile error,
+- **Add Ability Module** — used *inside* a program's build graph. It emits a step into
+  the program's list; it does **not** run the step. Its Builder pin must be connected
+  to the build graph's program builder (an unconnected Builder is a hard compile error,
   not a silent no-op). This is the graph-driven alternative to authoring the program's
-  step list in class defaults — the two are mutually exclusive.
+  step list in class defaults — the two are mutually exclusive. Once you pick a step
+  class, the node retitles itself **Add Ability Module: &lt;ClassName&gt;**.
 
-- **Run Module** — runs a single step *in place*, right where you place the node, as a
-  reusable one-off ("spawn decals at these locations") without authoring a whole
-  ability. It exposes a **Grouping** option — whether the step's undoable changes fold
-  into a surrounding activation's single undo step or stand alone as their own undo
-  unit — and an optional **Seed Targets** list to start the step's target list from.
+- **Run Ability Module** — runs a single step *in place*, right where you place the
+  node, as a reusable one-off ("spawn decals at these locations") without authoring a
+  whole ability. It exposes a **Grouping** option — whether the step's undoable changes
+  fold into a surrounding activation's single undo step or stand alone as their own
+  undo unit — and an optional **Seed Targets** list to start the step's target list
+  from.
 
-!!! warning "Run Module runs synchronous steps only"
-    The run-a-step-in-place node handles steps that finish in one go. Steps that pause
-    — decision points and response windows — do not work standalone through it, and
-    running an asynchronous step this way is not shipped in this version. Use a full
-    ability program when a step needs to wait for a choice or open a window.
+!!! warning "A step run in place cannot ask for a choice"
+    Steps that suspend for input — decision points and response windows — do not work
+    standalone; use a full ability program when a step needs to wait for a choice. A
+    step run in place otherwise finishes immediately, with one exception: if a change
+    it applies is held open by a reaction's unanswered prompt, the run finishes when
+    that prompt is answered, and the whole thing is still one undo unit.
 
-## Log categories
+!!! note "One label the details panel still spells with an acronym"
+    A step's three shared config fields — **Operation**, **Label** and **Handle** —
+    and the **Execute** / **Execute Async** override events group under a details-panel
+    category literally named **ABM**. That is the ability-module category; the docs
+    call the same thing an *ability module* everywhere else. You will also see the
+    label **Lookback (ABM Handle)** in the target-source dropdown (see
+    [target sources](reference-targeting.md#target-sources-how-a-step-decides-what-to-act-on)),
+    and the same shorthand in some linter findings.
+
+## Console and log categories
 
 For troubleshooting, the plugin logs runtime activity under `LogPAb` and editor-tool
 activity (the linter, Validate Ability) under `LogPAbEditor`.
+
+Two console entries drive the AI tuning loop — the workflow is in
+[Tuning: the console loop](reference-ai.md#tuning-the-console-loop):
+
+| Console | What it does |
+|---|---|
+| `PAb.AI.ScoreBreakdown` | `0` (default) captures nothing. `1` captures a per-consideration score breakdown for every candidate the AI weighs. `2` also logs each candidate as it is scored. Compiled out of Shipping builds. |
+| `PAb.AI.DumpLastBreakdown` | Prints the last deliberation's per-candidate breakdown. Requires the capture to have been on *before* that deliberation ran. |
