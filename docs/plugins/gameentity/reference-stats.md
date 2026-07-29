@@ -125,7 +125,113 @@ To apply several base-stat deltas as one undo-friendly, single-recompute unit, s
     change (`ApplyStatChange`) that lets other entities react to — and even reshape —
     the change before and after it commits. That reaction machinery is the
     [EventSystem's reaction windows](../eventsystem/guides.md#react-to-a-change-with-a-reaction-window);
-    the functions on this page are the direct, reaction-blind path.
+    the functions above are the direct, reaction-blind path. The next section is the
+    windowed family.
+
+---
+
+## Windowed stat and tag changes
+
+A **windowed** change opens a moment for rules to respond: interrupt listeners run
+before it commits and may reshape or veto it, and reaction listeners run afterwards
+against committed state. The model — phases, ordering, who may veto — lives in
+[Windowed changes](../eventsystem/reference.md#windowed-changes-entity-system) on
+the EventSystem reference. This section is the family of entry points, and what
+each one tells you about the outcome.
+
+Two are Blueprint-callable, and they are the ones most games use:
+
+```cpp
+// Windowed stat change. Delta is whole units. Returns false only when the entity or
+// stat is invalid or the stack is unavailable.
+bool ApplyStatChange(const FPGeEntityRef& Entity, FGameplayTag StatTag, int64 Delta,
+                     const FPGeEntityRef& Instigator);
+
+// Windowed tag change — no magnitude, so an interrupt may only veto. Returns false
+// for a no-op (adding a tag already present, removing an absent one) or an invalid
+// target.
+bool ApplyTagChange(const FPGeEntityRef& Entity, FGameplayTag Tag, bool bAdd,
+                    const FPGeEntityRef& Instigator);
+```
+
+!!! warning "Their bool means *the window ran*, not *the change happened*"
+    A change a listener **vetoed still returns `true`** from both of these. That is
+    deliberate and stable — it is the documented Blueprint contract — but it means
+    the return value cannot answer "did the target actually take this?". A rule
+    that applies Burning to everyone its fireball damaged must not burn the target
+    an interrupt made immune. To ask that question, use one of the C++ siblings
+    below.
+
+### The C++ siblings
+
+Three richer-return variants report what the plain call cannot. All are
+**C++-only** — they have no Blueprint nodes, because the distinctions they draw
+have no Blueprint surface today.
+
+```cpp
+// Same semantics and same return value as ApplyStatChange, but bOutCommitted also
+// reports whether a command actually landed: false when an interrupt vetoed the
+// change or shaped it to exactly zero, true otherwise.
+bool ApplyStatChangeChecked(const FPGeEntityRef& Entity, FGameplayTag StatTag,
+                            int64 Delta, const FPGeEntityRef& Instigator,
+                            bool& bOutCommitted);
+
+// The tag twin. bOutCommitted is false on a veto, and also when the submit failed
+// cleanly at the commit checkpoint — the entity was destroyed during the interrupt
+// phase, or the tag had already reached the desired state there.
+bool ApplyTagChangeChecked(const FPGeEntityRef& Entity, FGameplayTag Tag, bool bAdd,
+                           const FPGeEntityRef& Instigator, bool& bOutCommitted);
+
+// The fullest report: whether it committed, whether that answer is final, and — if
+// the change is waiting on someone — the episode holding it.
+bool ApplyStatChangePending(const FPGeEntityRef& Entity, FGameplayTag StatTag,
+                            int64 Delta, const FPGeEntityRef& Instigator,
+                            bool& bOutCommitted, uint64& OutHeldEpisodeId,
+                            bool& bOutResolved);
+
+// The tag equivalent, which needs no bOutResolved (there is no magnitude to shape).
+bool ApplyTagChangePending(const FPGeEntityRef& Entity, FGameplayTag Tag, bool bAdd,
+                           const FPGeEntityRef& Instigator, uint64& OutHeldEpisodeId);
+```
+
+`bOutCommitted` is only meaningful when the call itself returned `true` — a window
+that never ran is neither committed nor vetoed.
+
+### Reading `OutHeldEpisodeId` and `bOutResolved`
+
+These two answer different questions, and conflating them is the trap.
+
+| Output | Zero / false means | Non-zero / true means |
+|---|---|---|
+| `OutHeldEpisodeId` | The change settled synchronously — nothing is outstanding. | The change is **held**: an intent-phase listener suspended, so it has not committed and will resolve later. The value identifies the episode holding it. |
+| `bOutResolved` | The change has **not been judged yet** — the window's work was still queued when the call returned. It will commit shortly, and *nothing is waiting on it*. | `bOutCommitted` is a final answer. |
+
+To wait for a held change, register on its episode — it closes exactly when the
+change resolves, whether it commits, is vetoed, or fizzles:
+
+```cpp
+uint64 HeldEpisode = 0; bool bCommitted = false, bResolved = false;
+State->ApplyStatChangePending(Target, HealthTag, -10, Attacker,
+                              bCommitted, HeldEpisode, bResolved);
+
+if (HeldEpisode != 0)
+{
+    // Someone is deciding. Resume when they're done — you don't have to be the
+    // code that opened the window to wait on it.
+    UPEsEventSubsystem::Get(this)->RegisterEpisodeCloseCallback(HeldEpisode,
+        [this]{ ContinueAfterTheChangeResolved(); });
+}
+```
+
+!!! warning "Only `!bOutCommitted && bOutResolved` is a veto"
+    Do not read "not committed" as "rejected". An unresolved change is one whose
+    judgment simply had not happened yet at the moment you asked — and it is *not*
+    a held one, so there is no episode to wait on and parking on it is wrong.
+
+    Check `bOutResolved` before concluding a target was unaffected. Skipping it is
+    exactly the bug this flag exists to prevent: an effect's result set silently
+    depending on whether unrelated content happened to have an intent-phase
+    listener registered somewhere.
 
 ---
 
@@ -499,4 +605,5 @@ The relevant tag roots are `Stat.*` (stats), `StatPhase.*` (ordering phases),
 - [Evaluators plugin](../evaluators/index.md) and its [reference](../evaluators/reference.md) — magnitudes, pipelines, and the stat value type.
 - [Entity reference](reference-entities.md) — the lifecycle, hierarchy, and tagged-data API.
 - [Command reference](reference-commands.md) — the built-in stat commands and replay.
+- [EventSystem reference](../eventsystem/reference.md#windowed-changes-entity-system) — the reaction-window model behind the windowed changes above.
 - [CommandSystem plugin](../commandsystem/index.md) — the undo/redo engine behind every write.

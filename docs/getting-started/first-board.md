@@ -138,11 +138,10 @@ Then set it on the goblin and read it back:
     }
     ```
 
-!!! note "Entity data is not the same as actor data"
-    The same tagged-data API also works on any Actor or object as convenient
-    typed storage. The difference — and why entity tagged data undoes and saves
-    while actor tagged data doesn't — is spelled out on the
-    [Tagged Data](../concepts/tagged-data.md) page.
+!!! note "Entities are the only place tagged data lives"
+    There is one door for tagged data, and it is the entity one you just used —
+    which is why that write undoes, saves, and replays with everything else. The
+    reasoning is on the [Tagged Data](../concepts/tagged-data.md) page.
 
 ## Step 4 — Change a stat, then Undo it
 

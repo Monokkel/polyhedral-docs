@@ -32,7 +32,14 @@ int32                       ActionsProjected;
 
 ### Specializing how an intent plays out
 
-The unit the layer queues is `UPAbGenericProjectedAction` — a played-out action that fans one cue per affected token and reports done when the last of them finishes. Out of the box its generic body does the right thing (a net stat decrease drives a `Cue.TakeDamage` on the target; a placement change re-snaps the token). You author a subclass **only** when a particular intent needs a signature playout — a fly-move that arcs instead of walks, a summon that fades in.
+The unit the layer queues is `UPAbGenericProjectedAction` — a played-out action that fans one cue per affected token and reports done when the last of them finishes. Out of the box its generic body does the right thing (a net stat decrease drives a `Cue.TakeDamage` on the target; a placement change re-snaps the token). You author a subclass when a particular intent needs a playout of its own — a walked move, a fly-move that arcs, a summon that fades in.
+
+!!! note "A move inside an ability snaps unless you specialize it"
+    The generic body re-snaps a token to its new cell; it does not fan a `Cue.Move`.
+    That is correct for a blink or a shove, and wrong for a walk — so if you want an
+    ability's movement to travel the route, subclass for your `Action.Move` intent and
+    play a [`Cue.Move`](../tokensystem/reference.md#the-shipped-cue-handlers) carrying the
+    path. Outside an ability, you play that cue yourself the same way.
 
 The recipe mirrors the [cue-handler pattern](../tokensystem/reference.md#cue-handlers): subclass, tag it, override the run hook. It self-registers by its class defaults — there is no central table to edit — and the layer picks the most specific subclass whose intent tag matches, falling back to the generic body when none is more specific.
 
@@ -105,6 +112,25 @@ The rest of the targeting-session API — binding it to resolution, submitting a
     // Unchanged serial => the hover changed nothing; don't show a stale readout.
     ```
 
+### Predicted terrain changes
+
+An ability can change the board itself — the shipped **Effect: Remove Cells** step removes the cells in its target list (see [Programs & Steps](reference-programs.md#the-building-block-steps)). When such an ability is *previewed*, the cells it would carve out are published the same way its entity changes are, so a UI can ghost the hole before the player commits.
+
+```cpp
+// The board changes the last what-if run produced — which cells it removed and added.
+UFUNCTION(BlueprintPure) FGridStructuralDelta GetLastSpeculativeStructuralDelta() const;
+
+// Its serial. Pair it with the readout exactly as with the entity changes above:
+// an unchanged serial means the run changed no terrain, not that it changed none NOW.
+UFUNCTION(BlueprintPure) int32 GetLastSpeculativeStructuralSerial() const;
+
+// Fires when a what-if run's board changes settle. Blueprint-assignable.
+FPAbOnSpeculativeStructureCoalesced OnSpeculativeStructureCoalesced;
+```
+
+!!! note "You draw the ghost"
+    The framework publishes *which* cells a preview would remove or add; it does not render a ghost-terrain overlay for you. Paint it yourself through the [grid visualization channels](../gridgraph/reference-visualization.md), the same way you would any other predictive board paint.
+
 ## Checking availability
 
 Two different questions gate an ability button, and they cost very different amounts. Ask the cheap one every frame and the expensive one only on click.
@@ -149,14 +175,19 @@ bool CanActivate(const FPGeEntityRef& Caller, const FPGeEntityRef& Ability);
 
 ## Enemy AI
 
-An enemy turn is a legible three-beat loop over the same what-if mechanism: the AI **tries** each candidate action on a throwaway copy, **scores** the outcome, **telegraphs** its chosen action through the *same* preview overlay a player hover uses, then **plays** it for real. While it is deliberating, player input is held so the board cannot change under it. The loop runs out of the box with a content-neutral scorer — teaching the AI your game's own judgment of a good move is a small piece of C++.
+An enemy turn is a legible three-beat loop over the same what-if mechanism: the AI **tries** each candidate action on a throwaway copy, **scores** the outcome, **telegraphs** its chosen action through the *same* preview overlay a player hover uses, then **plays** it for real. While it is deliberating, player input is held so the board cannot change under it.
 
-!!! warning "AI scoring and deliberation are a C++-only extension point"
-    Unlike previews and availability, there is **no Blueprint path** here. The scorer is a non-dynamic delegate over a reference-carrying view, which cannot be bound from Blueprint by construction, and the deliberation driver's verbs are C++-only. The plan it produces (`FPAbAiPlan`) is Blueprint-readable so you can *inspect* a chosen plan, but everything that produces or acts on one is C++.
+**What each candidate is worth is authored as data.** An entity carries an **AI profile** — a bundle of *considerations*, each measuring one axis of a candidate's outcome — and the framework combines them into a score. That is the path most games should take, and it needs no C++ at all; it has its own page,
+[Enemy AI: Considerations & Profiles](reference-ai.md). This page covers the loop that drives it and the C++ seam for taking scoring over entirely.
+
+!!! warning "The *loop* is a C++-only extension point"
+    Authoring judgment is data (see [Enemy AI](reference-ai.md)), but driving the loop is not: apart from `Get`, the deliberation driver's verbs are **C++-only**, and the scorer delegate is a non-dynamic delegate over a reference-carrying view, which cannot be bound from Blueprint by construction. The plan it produces (`FPAbAiPlan`) is Blueprint-readable so you can *inspect* a chosen plan, but everything that produces or acts on one is C++.
 
 ### The scorer contract
 
-Your scorer is a plain function: given one candidate's outcome, return a float where higher is better. It receives a call-scoped view carrying the summarized changes the trial produced plus read-only before/after state, so it can judge magnitude *and* position. Unbound, the framework falls back to a deliberately content-neutral stand-in (it scores the magnitude of stat decrease inflicted on units other than the caller) — the framework scores *how much* happened; your game weights *whose* effect is good.
+Binding a scorer is how a game takes scoring over completely. Your scorer is a plain function: given one candidate's outcome, return a float where higher is better. It receives a call-scoped view carrying the summarized changes the trial produced, read-only before/after state, and the board as the trial left it — so it can judge magnitude, position, *and* terrain.
+
+**What "unbound" means:** leaving the scorer unbound selects the **data-driven profile scorer**, which scores each entity from its own authored AI profile. Per entity, if that profile is empty it falls back to a content-neutral stand-in (it scores the magnitude of stat decrease inflicted on units other than the caller), so an enemy carrying no profile behaves exactly as it did before profiles existed. An **explicit binding always wins**, for every entity.
 
 ```cpp
 // A plain C++ view (deliberately NOT a USTRUCT) handed to your scorer for one
@@ -172,11 +203,17 @@ struct FPAbScoreContext
     const TArray<FPGeEntityChange>& Coalesced;      // the summarized changes this trial produced
     const FPGeGameState&            ResultantState; // the copy's after-state (read-only)
     const FPGeGameState&            BaselineState;  // the untouched before-state (read-only)
+
+    const FPAbScoreBoardView&       Board;          // the RESULTANT board: connectivity, occupants, paths
+    bool                            bHasStructuralDelta; // did THIS trial change the board's shape?
+    const FGridStructuralDelta&     StructuralDelta;     // which cells it added / removed
 };
 
 // Higher = better. Non-dynamic delegate — C++ only, cannot be bound from Blueprint.
 DECLARE_DELEGATE_RetVal_OneParam(float, FPAbCandidateScorer, const FPAbScoreContext& /*Ctx*/);
 ```
+
+`Board` answers query-shaped questions about the board the candidate would leave behind — is this cell occupied, what does it cost to path there, what is reachable within a budget. There is deliberately **no baseline board**: a structural before-state would cost a real grid copy per trial. Compute anything baseline-dependent about terrain *outside* deliberation, where the live board is the baseline — it is restored exactly between candidates, so a value read before deliberating stays valid across every trial.
 
 ```cpp
 // A game-specific scorer reads back the trial's changes and weights them by faction.
@@ -188,13 +225,19 @@ float ScoreForMyGame(const FPAbScoreContext& Ctx)
         // Reward harm to my enemies, discount self-harm; compare BaselineState vs
         // ResultantState for positional judgment beyond what the change list encodes.
     }
+
+    // Blend in the framework's own reading of magnitude instead of reimplementing it:
+    Score += UPAbAiDeliberationSubsystem::ContentNeutralScore(Ctx.Coalesced, Ctx.Caller);
     return Score;
 }
 
-// Bind it once. Unbound => the content-neutral default stand-in.
+// Bind it once. Unbound => each entity is scored by its own AI profile.
 UPAbAiDeliberationSubsystem* Ai = UPAbAiDeliberationSubsystem::Get(this);
 Ai->SetCandidateScorer(FPAbCandidateScorer::CreateStatic(&ScoreForMyGame));
 ```
+
+!!! tip "Blend, don't reimplement"
+    `ContentNeutralScore` is public precisely so a game scorer wanting *"the framework's reading of magnitude, plus my faction knowledge"* can add it in rather than rewrite it. It is a static C++ function with no Blueprint node.
 
 ### The deliberation driver
 
@@ -204,8 +247,14 @@ Ai->SetCandidateScorer(FPAbCandidateScorer::CreateStatic(&ScoreForMyGame));
 // Resolve the driver (the only Blueprint-visible call on it).
 static UPAbAiDeliberationSubsystem* Get(const UObject* WorldContextObject);
 
-// Bind a game-specific scorer; unbound falls back to the content-neutral default.
+// Bind a game-specific scorer; an explicit binding always wins. Unbound, each
+// entity is scored from its own AI profile.
 void SetCandidateScorer(FPAbCandidateScorer Scorer);
+
+// The framework's content-neutral reading of a candidate's outcome — the per-entity
+// fallback when an entity has no AI profile, exposed so a game scorer can blend it.
+static float ContentNeutralScore(const TArray<FPGeEntityChange>& Coalesced,
+                                 const FPGeEntityRef& Caller);
 
 // Try each of Caller's candidate actions on a throwaway copy, score the outcome, and
 // return the best plan. Holds player input while it runs; the hold STAYS held on a
@@ -261,7 +310,16 @@ struct FPAbAiPlan
 ```
 
 !!! warning "These AI types are provisional"
-    The AI extension surface — `FPAbAiPlan` and the deliberation driver's verbs — may still change in a future version, including in non-additive ways, while the searching-driver shape settles. Build against it, but don't treat its exact shape as frozen the way the config structs you author abilities against are. (The scorer view `FPAbScoreContext` *is* frozen — additive-only.)
+    The AI extension surface — `FPAbAiPlan` and the deliberation driver's verbs — may still change in a future version, including in non-additive ways, while the searching-driver shape settles. Build against it, but don't treat its exact shape as frozen the way the config structs you author abilities against are. (The scorer view `FPAbScoreContext` *is* frozen — additive-only, which is why its board and structural-delta fields were appended at the end.)
+
+### Seeing why the AI chose what it chose
+
+Every candidate the AI scores can be captured with its per-consideration arithmetic, then dumped from the console:
+
+- `PAb.AI.ScoreBreakdown 1` — capture the breakdown (`2` also logs each candidate as it scores; `0`, the default, captures nothing and costs nothing).
+- `PAb.AI.DumpLastBreakdown` — print the last deliberation's per-candidate breakdown.
+
+The records are also readable in C++ through `GetLastDeliberationScores()` and `FormatLastDeliberationScores()`, which is what a test asserts against. The setting is sampled once per deliberation, so turn it on *before* the turn you want to inspect. How to read the output is covered in [Tuning: the console loop](reference-ai.md#tuning-the-console-loop).
 
 ## Repeat-stable rolls
 
@@ -275,4 +333,4 @@ A step draws its numbers through the context it is handed (see [the execution co
 
 ---
 
-**See also:** [Abilities and step-by-step resolution](../../concepts/abilities-and-resolution.md#what-if-runs-previews-and-enemy-ai) (the model) · [Tokens & Cues](../../concepts/tokens-and-cues.md#previews-ride-the-same-rails) (the preview surfaces) · [TokenSystem reference](../tokensystem/reference.md#projected-actions) (projected actions and capabilities) · [Targeting & Running Abilities](reference-targeting.md) (the targeting session in full).
+**See also:** [Abilities and step-by-step resolution](../../concepts/abilities-and-resolution.md#what-if-runs-previews-and-enemy-ai) (the model) · [Enemy AI: Considerations & Profiles](reference-ai.md) (authoring enemy judgment as data) · [Tokens & Cues](../../concepts/tokens-and-cues.md#previews-ride-the-same-rails) (the preview surfaces) · [TokenSystem reference](../tokensystem/reference.md#projected-actions) (projected actions and capabilities) · [Targeting & Running Abilities](reference-targeting.md) (the targeting session in full).

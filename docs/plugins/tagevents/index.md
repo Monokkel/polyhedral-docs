@@ -11,6 +11,12 @@ along a caller and an optional payload. There is no subscription list and no bro
 one object raises, one object handles. That directness is the whole point: it's the
 smallest possible "dispatch by tag" primitive.
 
+!!! note "Ships inside Polyhedral Core"
+    TagEvents is a **module** of the [PolyhedralCore](../polyhedralcore/index.md)
+    plugin, alongside CommandSystem, QueueFramework, and NoiseBasedRandomSeed. You
+    enable `PolyhedralCore` in your `.uplugin` or `.uproject`; from C++ you depend on
+    `TagEventsRuntime` by name in your `.Build.cs`.
+
 !!! note "This is a foundation, not the usual entry point"
     Most gameplay code should use the higher-level **EventSystem** — broadcast to many
     listeners on channels, with ordering and reaction windows. TagEvents is the
@@ -20,7 +26,7 @@ smallest possible "dispatch by tag" primitive.
 
 ## Where it fits in the framework
 
-TagEvents is a standalone, zero-dependency plugin. It provides one mechanism —
+TagEvents is a standalone, zero-dependency module. It provides one mechanism —
 resolve the handler a gameplay tag names on an object, validate its signature, and
 call it. Two things build on that core:
 

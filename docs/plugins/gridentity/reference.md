@@ -5,6 +5,11 @@ covers one area with clean signatures and short usage notes; for step-by-step
 recipes see the [Guides](guides.md), and for the model see
 [Grids & Occupancy](../../concepts/grids-and-occupancy.md).
 
+Three areas have pages of their own: [Facing & Arcs](reference-facing.md) (which way a
+unit points, and who is behind it), [Footprints](reference-footprints.md) (units on
+more than one cell), and [Movement & Structural Windows](reference-windows.md) (the
+moments a rule can interject around a step or a board edit).
+
 All public types carry the `PGx` prefix. Signatures below are hand-written to show
 the shape of each API; they are illustrative, not source excerpts. Every write call
 in this plugin is a thin wrapper over a [GameEntity command](../gameentity/reference-commands.md) —
@@ -19,7 +24,8 @@ function library — a set of static calls — that reads and writes it. Two kin
 and an entity carries at most one at a time:
 
 - **`Data.Placement.Cell`** — an `FPGxGridPlacement` for a unit on a grid. The cell is
-  authoritative; the world position is derived from it.
+  authoritative; the world position is derived from it. It also carries the unit's
+  **logical orientation**, so turning is a placement write like moving.
 - **`Data.Placement.World`** — a free world transform for an off-grid piece.
 
 When a grid argument is left null, these calls default to the world's main board —
@@ -27,7 +33,7 @@ the model to build against.
 
 ### Creating a placed unit
 
-Both create calls seed the placement into the entity's *creation* command, so the
+Every create call seeds the placement into the entity's *creation* command, so the
 unit is born standing somewhere — there is never an instant where it exists but is
 placed nowhere.
 
@@ -37,6 +43,14 @@ placed nowhere.
 static FPGeEntityRef CreateEntityAtCell(
     const UObject* WorldContext, FName TemplateId,
     FGridNodeHandle Cell, FRotator Facing, UGridGraph* Grid = nullptr);
+
+// Born on a cell AND already oriented: the rotation step is seeded into the same
+// create command, so the unit never exists in a default orientation, not even for
+// an instant. The one to use for a unit whose facing matters — or that occupies
+// more than one cell, where orientation decides which cells it covers.
+static FPGeEntityRef CreateEntityAtCellOriented(
+    const UObject* WorldContext, FName TemplateId, FGridNodeHandle Cell,
+    int32 RotationSteps, FRotator Facing, UGridGraph* Grid = nullptr);
 
 // Born off the grid, at a free world transform — the mirror of CreateEntityAtCell.
 // Seeds Data.Placement.World instead. For dragged tokens, off-board reserves.
@@ -58,6 +72,13 @@ static void MoveEntityToCell(
     const UObject* WorldContext, const FPGeEntityRef& Ref,
     FGridNodeHandle Cell, UGridGraph* Grid = nullptr);
 
+// Reposition AND rotate in ONE write — one command, one undo step, and the unit is
+// never observable in an intermediate orientation. Clears any stale off-grid facet in
+// the same undo unit; the cosmetic facing is preserved.
+static void MoveEntityToCellOriented(
+    const UObject* WorldContext, const FPGeEntityRef& Ref,
+    FGridNodeHandle Cell, int32 RotationSteps, UGridGraph* Grid = nullptr);
+
 // Reposition to a free world transform — the off-grid mirror of MoveEntityToCell.
 static void MoveEntityToTransform(
     const UObject* WorldContext, const FPGeEntityRef& Ref, const FTransform& Transform);
@@ -70,6 +91,42 @@ static void MoveEntityToTransform(
     Undo reverses the whole move. Because the move joins an open transaction, you get
     exactly one undo entry. See
     [Move units on the board](guides.md#move-units-on-the-board).
+
+### Orientation and shape
+
+The same facet carries a unit's **logical orientation** — a whole number of the board's
+turns — and points at its optional multi-cell **shape**. Both are written by ordinary
+commands, so both undo.
+
+```cpp
+// The rules-relevant orientation write: set the logical rotation step. One command;
+// cell, board, and cosmetic facing are preserved. False if the unit is not on a cell.
+static bool RotateEntityInPlace(
+    const UObject* WorldContext, const FPGeEntityRef& Ref, int32 RotationSteps);
+
+// COSMETIC only: a free yaw for presentation. No rule reads it and it never changes
+// which cells the unit occupies. One command.
+static bool SetEntityFacing(
+    const UObject* WorldContext, const FPGeEntityRef& Ref, FRotator Facing);
+
+// Write / drop a live multi-cell shape override on top of the template's shape.
+static void SetEntityFootprint(
+    const UObject* WorldContext, const FPGeEntityRef& Ref, const FPGxFootprint& Footprint);
+static bool ClearEntityFootprintOverride(const UObject* WorldContext, const FPGeEntityRef& Ref);
+```
+
+The read and legality side of both — facing steps, arcs, footprint resolution, and the
+"may this unit stand here?" check — is covered on
+[Facing & Arcs](reference-facing.md) and [Footprints](reference-footprints.md).
+
+!!! warning "Placement writes do not check legality"
+    None of the placement calls asks whether the result is legal. For a single-cell
+    unit there is nothing to ask. For a unit with a
+    [footprint](reference-footprints.md), a move, a rotation, or a shape change can put
+    it somewhere it does not fit — call
+    [**Can Entity Stand At**](reference-footprints.md#can-this-unit-stand-here) first.
+    Movement queries are the exception: a pathfind already refuses anchors a unit
+    cannot occupy.
 
 ### Reading placement
 
@@ -96,18 +153,27 @@ static TArray<FVector> BuildPathFromCells(
 // the world position is derived from it against the grid, never stored as truth.
 struct FPGxGridPlacement
 {
-    FName           GridId;   // empty = the world's main board
-    FGridNodeHandle Cell;     // the authoritative cell
-    FRotator        Facing;   // facing on the cell
+    FName           GridId;         // empty = the world's main board
+    FGridNodeHandle Cell;           // the authoritative cell (the ANCHOR, for a multi-cell unit)
+    int32           RotationSteps;  // logical orientation, in whole board turns
+    FRotator        Facing;         // COSMETIC yaw, composed on top; no rule reads it
 };
 ```
 
-The two tagged-data keys live in the `PGxPlacementTags` namespace:
+`RotationSteps` is the orientation rules and occupancy use: one step is one of the
+board's directions (90&deg; on a square board, 60&deg; on a hex board), normalised when
+it is read. `Facing` is presentation only — a mini may lean or ease into a turn without
+touching game state.
+
+The tagged-data keys live in the `PGxPlacementTags` and `PGxFacingTags` namespaces:
 
 | Tag | Value type | Meaning |
 |---|---|---|
 | `Data.Placement.Cell` | `FPGxGridPlacement` | A unit standing on a grid cell (the cell is authoritative). |
 | `Data.Placement.World` | `FPTaTransform` | An off-grid piece at a free world transform. |
+| `Data.Placement.Footprint` | `FPGxFootprint` | The optional [multi-cell shape](reference-footprints.md). Absent or empty = the anchor cell only. |
+| `Data.Placement.ArcBands` | `FPGxArcBands` | One unit's [arc-band override](reference-facing.md#arc-bands-how-the-space-is-divided). |
+| `Data.Placement.MovementStop` | Presence marker | ["The movement in flight ends"](reference-windows.md#ending-a-move-in-flight). Deliberately outside the `Data.Movement.*` grant namespace so it is never mistaken for a movement capability. |
 
 Because placement is ordinary [entity tagged data](../gameentity/reference-entities.md),
 you never persist or capture it yourself — moving a unit is a command, so its position
@@ -135,8 +201,30 @@ static UPGxOccupancySubsystem* Get(const UObject* WorldContextObject);
 TArray<FPGeEntityRef> GetEntitiesOnCell(FGridNodeHandle Cell, UGridGraph* Grid = nullptr) const;
 
 // The grid placement a given entity currently carries, if any. False if unplaced.
+// This is the ANCHOR — the single position fact, unaffected by footprints.
 bool GetCellOfEntity(const FPGeEntityRef& Ref, FPGxGridPlacement& Out) const;
+
+// EVERY cell the entity occupies — its resolved footprint, in a deterministic order.
+// A single-cell unit resolves to just its anchor.
+TArray<FGridNodeHandle> GetCellsOfEntity(const FPGeEntityRef& Ref) const;
+
+// "Does this golem cover that cell?" Grid null = the world's main board.
+bool IsEntityOnCell(const FPGeEntityRef& Ref, FGridNodeHandle Cell, UGridGraph* Grid = nullptr) const;
 ```
+
+All four queries are Blueprint pure.
+
+!!! note "The reverse lookup is a *set* of cells"
+    A [footprinted unit](reference-footprints.md) is listed on every cell it covers, so
+    the reverse question has a plural answer: **Get Cells Of Entity** returns the whole
+    covered set, and **Is Entity On Cell** answers membership directly without you
+    iterating it. **Get Cell Of Entity** is the odd one out on purpose — it returns the
+    anchor placement, because a unit still has exactly one position even when it covers
+    four cells.
+
+The index also reconciles when the *board* changes under it: removing cells that units
+were standing on drops their placements and raises the displacement signals described
+in [Movement & Structural Windows](reference-windows.md#two-displacement-signals-on-purpose).
 
 !!! note "The order guarantee"
     A cell's occupants come back sorted by **ascending entity id** — i.e. creation
@@ -310,6 +398,7 @@ of every grant key (used to enumerate a unit's grants). The shipped leaves:
 | `Data.Movement.Modifier.TagBased` | Modifier | Reprice steps by the tags on a cell. |
 | `Data.Movement.Modifier.FactionBlock` | Modifier | The default "can't enter another faction's cell" gate (granted by `GrantDefaultFactionBlock`). |
 | `Data.Movement.Modifier.EdgeAttunementGate` / `.ConditionalEdge` | Modifier | The shipped gates for special edges (teleporters) and conditional links (a drawbridge). |
+| `Data.Movement.Modifier.FootprintConnected` | Modifier | The opt-in [wall-cohesion gate](reference-footprints.md#connectivity-is-granted) for multi-cell units (granted by `GrantFootprintConnected`). |
 
 !!! note "Grants route by payload type, not by a fixed list"
     A game adds its own source and modifier leaves freely. Profile assembly routes a
@@ -362,7 +451,7 @@ stand on its entity's cell and walk a move. It is `Blueprintable` and `Abstract`
 you derive `BP_GridToken` from it, give it a look, and assign it as the unit's token
 class (under `Data.Presentation.TokenClass`, like any token).
 
-It contributes two things over a plain token actor:
+It contributes three things over a plain token actor:
 
 - **It stands on the right cell with no positioning code.** Its world position is
   derived from the unit's placement, through the resolver the token registry uses when
@@ -374,20 +463,35 @@ It contributes two things over a plain token actor:
   [`BuildPathFromCells`](#reading-placement)) walks it along the route instead of
   teleporting. The reverse change event from an undo re-snaps it through the same
   resolver.
+- **It turns in place.** It also implements the *orientable* capability, so a played
+  `Cue.Face` tweens the mini around to a new [facing](reference-facing.md) instead of
+  snapping. The cue carries a full transform, because turning a
+  [centroid-pivoted](reference-footprints.md) body also shifts where it stands.
 
 ```cpp
 // Grid-aware token base. Derive BP_GridToken from this, give it a mesh, assign it as
 // the entity's token class. The registry spawns and positions it automatically.
-class APGxGridTokenActor : public APTkTokenActor, public IPTkMovable
+class APGxGridTokenActor : public APTkTokenActor, public IPTkMovable, public IPTkOrientable
 {
     // Travel speed (cm/s) when walking a Cue.Move path.
     float MoveSpeed = 600.f;
 
+    // Turn rate (deg/s) when playing a Cue.Face.
+    float TurnSpeed = 360.f;
+
     // The movable capability: walk the world-space path, completing the cue at the end.
     // Override MoveAlongPath as a Blueprint event (calling Parent) to customize the walk.
     void MoveAlongPath(const TArray<FVector>& Worldspace, UPTkCueContext* Ctx);
+
+    // The orientable capability: tween in place to the target transform, then complete.
+    // Override TurnTo as a Blueprint event (calling Parent) to customize the turn.
+    void TurnTo(const FTransform& TargetTransform, UPTkCueContext* Ctx);
 };
 ```
+
+Both cue playouts are animation only. Undo, redo, and load never animate: the change
+event they raise re-snaps the token through the same resolver that placed it, so a
+rewound board is instantly correct rather than played backwards.
 
 !!! tip "Snapping is free; the walk is opt-in"
     With only the token class assigned, the mini is always on the correct cell and

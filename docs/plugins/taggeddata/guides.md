@@ -5,101 +5,74 @@ section below is a short, followable recipe; pick the one that matches your task
 For the full type-by-type surface, see the [API Reference](reference.md). For the
 model behind it all, see [Tagged Data](../../concepts/tagged-data.md).
 
-## Attach tagged data to any actor or object
-
-The quickest way to store a typed struct on any object is the function library.
-It resolves the provider for you — the object itself if it implements the
-interface, otherwise a component on the actor — and can create that component on
-demand.
+Tagged data is stored on entities, so every read/write recipe here goes through
+GameEntity's game-state subsystem. Get it once and hold it.
 
 === "Blueprint"
-    1. Drag a **Set Tagged Data** node (from the *TaggedData* category).
-    2. Set **Target** to the object or actor. Leave it as `self` to store on the
-       current Blueprint.
-    3. Pick a **Tag** in the `Data.*` namespace.
-    4. Feed the **In Data** pin. Use a typed node (below) to get a real struct
-       pin, or pack a value into a generic container first.
-    5. Tick **Create Component On Actor If Missing** if the actor has no store
-       yet and you want one made automatically.
-    6. Read it back with **Get Tagged Data**, which branches **Success** /
-       **Failure**.
+    Call **Get Game State Subsystem** (from the *GameEntity* category), passing a
+    world context, and store the result.
 
 === "C++"
     ```cpp
-    FBoardPosition Pos{ /*Column*/ 3, /*Row*/ 2 };
+    UPGeGameStateSubsystem* State = UPGeGameStateSubsystem::Get(this);
+    ```
 
-    // Store on any object; make a component if the actor has no store yet.
-    UPTaTaggedDataFunctionLibrary::TrySetTaggedData(
-        Target, PositionTag, FInstancedStruct::Make(Pos),
-        /*bCreateComponentOnActorIfMissing=*/ true);
+## Read and write tagged data on an entity
 
-    // Read it back out of the generic container.
-    FInstancedStruct Raw;
-    if (UPTaTaggedDataFunctionLibrary::TryGetTaggedData(Target, PositionTag, Raw))
+This is the one storage path. Writes are command-driven — undoable, saved, and
+replayed — and reads fall back to the entity's template when the entity has no
+override of its own.
+
+=== "Blueprint"
+    1. Drop a **Set Entity Tagged Data (Typed)** node (palette category
+       **GameEntity | TaggedData**) and wire your **Entity Ref** to it.
+    2. Pick a **Tag** in the `Data.*` namespace. If the schema maps it, the
+       **Data** pin becomes that concrete struct type.
+    3. Wire the **Data** pin — a **Make Struct** node is the usual source. The
+       node reports **Success**, and the write shows up in Undo.
+    4. Read it back with **Get Entity Tagged Data (Typed)**: it outputs the
+       typed struct plus a **Found** bool. Use **Get Entity Tagged Data (Typed,
+       Exec)** instead when you'd rather branch on **Success** / **Failure** exec
+       pins than test a bool.
+
+=== "C++"
+    ```cpp
+    // Writing entity tagged data routes through the command stack — undoable.
+    State->SetTaggedData(Card, PositionTag,
+        FInstancedStruct::Make(FBoardPosition{ 3, 2 }));
+
+    // Reads resolve the entity's own value, then fall back to its template.
+    FInstancedStruct Raw = State->GetTaggedData(Card, PositionTag);
+    if (const FBoardPosition* Pos = Raw.GetPtr<FBoardPosition>())
     {
-        if (const FBoardPosition* Got = Raw.GetPtr<FBoardPosition>())
-        {
-            // use Got->Column, Got->Row
-        }
+        // use Pos->Column, Pos->Row
     }
+
+    // Presence check, same fallback.
+    const bool bPlaced = State->HasTaggedData(Card, PositionTag);
     ```
 
-!!! tip "Two flavours of get/set"
-    The library exposes an exec pair (`GetTaggedData` / `SetTaggedData`, with a
-    Success/Failure exec branch) and a simpler bool-returning pair
-    (`TryGetTaggedData` / `TrySetTaggedData`). Use whichever reads more clearly
-    in your graph or code.
+!!! warning "A wired Data pin, not a typed-in literal"
+    Once a **Tag** resolves to a concrete schema type, the **Data** pin *must* be
+    wired — a typed struct pin can't take an inline literal, and the Blueprint
+    fails to compile with a message saying so. Feed it a **Make Struct**.
 
-!!! warning "No undo on actor storage"
-    Data set this way is convenient typed storage only — it is not undoable,
-    saved, or replayed. For anything your game rules depend on, store it on an
-    entity instead (see the last guide on this page).
+!!! warning "In C++, `SetTaggedData` returns `void`"
+    A write the schema gate refuses is logged, but the subsystem's
+    `SetTaggedData` has no way to tell you. When you need to know whether the
+    write landed, call the bool-returning `TrySetTaggedData` on
+    `UPGeGameStateLibrary` instead — it runs the same gate and returns `false` on
+    a refusal. (The typed Blueprint nodes already use it; that's where their
+    **Success** pin comes from.)
 
-## Give your own class its own tagged-data store
-
-When an object should *be* its own store rather than delegating to a component,
-implement the interface directly. This is the right choice for a `UObject` that
-isn't an actor, or when you want tagged data to live on the object itself.
-
-=== "Blueprint"
-    1. In your Blueprint's **Class Settings**, add the **Ta Tagged Data
-       Interface**.
-    2. Implement the interface events (Get / Set / Remove / Has / Get All / Set
-       All) against your own storage — commonly a `Map` of tag to a generic
-       struct container.
-    3. Callers using the function library will now find your object directly, no
-       component required.
-
-=== "C++"
-    ```cpp
-    UCLASS()
-    class UMyDataObject : public UObject, public IPTaTaggedDataInterface
-    {
-        GENERATED_BODY()
-
-    public:
-        virtual bool GetTaggedData_Implementation(
-            const FGameplayTag& Tag, FInstancedStruct& OutData) const override;
-        virtual bool SetTaggedData_Implementation(
-            const FGameplayTag& Tag, const FInstancedStruct& InData) override;
-        // ...Remove / Has / GetAll / SetAll
-
-    private:
-        UPROPERTY()
-        TMap<FGameplayTag, FInstancedStruct> Store;
-    };
-    ```
-
-!!! tip "Or just drop in the component"
-    If your class is an actor, you usually don't need to implement anything — add
-    a `UPTaTaggedDataComponent` (it's a spawnable component) and it provides the
-    store for you. The function library finds it automatically.
+Full API, including the gate and the mirror-tag rule:
+[Tagged data on an entity](../gameentity/reference-entities.md#tagged-data).
 
 ## Define a schema and get typed Blueprint pins
 
 A schema maps each `Data.*` tag to the struct type stored under it. It buys you
-two things: **typed Blueprint pins** on the custom nodes, and optional
-**validation on set**. This is a one-time authoring step.
+two things: **typed Blueprint pins** on the entity get/set nodes, and a **type
+check on write**. This is a one-time authoring step.
 
 === "Blueprint"
     1. Create a **Tagged Data Schema** data asset.
@@ -109,18 +82,17 @@ two things: **typed Blueprint pins** on the custom nodes, and optional
     3. Open **Project Settings → Plugins → Tagged Data** and add your schema to
        the **Schema Assets** list. It's saved to project config, so it travels
        with the project.
-    4. Now drop a typed **Set Tagged Data** node and pick a mapped tag — its
-       value pin becomes that real struct type. The matching **Get** node outputs
-       the same type.
+    4. Now drop a **Set Entity Tagged Data (Typed)** node and pick a mapped tag —
+       its **Data** pin becomes that real struct type. The matching **Get Entity
+       Tagged Data (Typed)** node outputs the same type.
 
 === "C++"
     ```cpp
     // With Data.Board.Position mapped to FBoardPosition in the schema, the typed
     // nodes give you an FBoardPosition pin in Blueprint. In C++ you work with the
-    // struct type directly and pack/unpack the generic container yourself:
-    FInstancedStruct Raw =
-        FInstancedStruct::Make(FBoardPosition{ 3, 2 });
-    UPTaTaggedDataFunctionLibrary::TrySetTaggedData(Target, PositionTag, Raw);
+    // struct type directly and pack it yourself:
+    State->SetTaggedData(Card, PositionTag,
+        FInstancedStruct::Make(FBoardPosition{ 3, 2 }));
     ```
 
 !!! tip "Fallback is automatic"
@@ -129,9 +101,82 @@ two things: **typed Blueprint pins** on the custom nodes, and optional
     Un-schemaed tags still work; you just don't get a pre-typed pin. You can
     start with an empty schema and fill it in as you go.
 
-The typed nodes also come in an **Expanded** variant that breaks the struct into
-one pin per field, and an **Exec** variant with Success/Failure branches. See
-[Typed Blueprint nodes](reference.md#typed-blueprint-nodes) for the full set.
+!!! note "Shipping a module of your own?"
+    A C++ module can register the tag-to-struct pairings it *owns* from module
+    startup, so game authors never transcribe them into a schema asset. See
+    [native schema registration](reference.md#native-schema-registration).
+
+## Declare a key that accepts subclasses
+
+Sometimes a key genuinely holds "any struct of this family" — a policy struct
+with several concrete variants, say. Exact type matching would refuse every
+subclass, so the schema entry has to say so explicitly.
+
+=== "Blueprint"
+    1. In your schema asset, find the entry for that tag.
+    2. Set its **Struct Type** to the **base** struct of the family.
+    3. Tick **Allow Subclasses**.
+    4. That tag's get/set nodes now give you a generic **Instanced Struct** pin
+       instead of a typed one. Build the concrete value with **Make Struct**, then
+       pack it into an instanced struct to feed the **Data** pin.
+
+=== "C++"
+    ```cpp
+    // With Allow Subclasses ticked on the entry for this tag, a derived struct
+    // is accepted where the base was expected.
+    State->SetTaggedData(Unit, PolicyTag,
+        FInstancedStruct::Make(FMyConcretePolicy{ /* ... */ }));
+
+    // Read it back as the base and test for the concrete type you want.
+    FInstancedStruct Raw = State->GetTaggedData(Unit, PolicyTag);
+    if (const FMyConcretePolicy* P = Raw.GetPtr<FMyConcretePolicy>())
+    {
+        // ...
+    }
+    ```
+
+!!! warning "You lose the typed pin, and that's deliberate"
+    **Allow Subclasses** relaxes the type check *and* drops the typed pin
+    together, because a base-typed pin cannot represent a subclass value: the
+    typed getter would hand back an empty struct, and the typed setter would
+    write the base slice back and destroy your subclass value. Tick it only for
+    keys whose consuming system really does validate by base class — exact
+    matching is what the typed pin rests on.
+
+## Remove a key: clear an override, or shadow the template
+
+There are **two** removal operations and they mean different things. Picking the
+wrong one is a real bug, not a style choice.
+
+| Call | Meaning | After it, a read returns |
+|---|---|---|
+| **Remove Tagged Data** | *Clear my override* | the template's value, if the template provides one |
+| **Shadow Template Tagged Data** | *Absent for me* | nothing — the key reads as missing |
+
+=== "Blueprint"
+    1. To discard a per-instance customisation — this card was re-costed and you
+       want the authored cost back — call **Remove Tagged Data** with the entity
+       reference and the tag.
+    2. To make a key genuinely not apply to this one entity, even though its
+       template supplies a value — this unit is off the board although its
+       template ships placed — call **Shadow Template Tagged Data**.
+    3. Both return **false** when there was nothing to do, and both undo cleanly.
+
+=== "C++"
+    ```cpp
+    // The template says 3x3; this instance was overridden to 1x1.
+    // Clear the override: the read goes back to the template's 3x3.
+    State->RemoveTaggedData(Unit, FootprintTag);
+
+    // Make the key absent for this instance, template or not.
+    State->ShadowTemplateTaggedData(Unit, FootprintTag);
+    ```
+
+!!! tip "Undoing a shadow, and lifting one later"
+    Undo restores whichever state you had. A later **Set Entity Tagged Data
+    (Typed)** lifts a shadow by writing an override; adding the key's marker tag
+    back with **Add Tag** lifts it *without* writing one, so the entity returns to
+    reading its template's value.
 
 ## Use the primitive wrappers for simple values
 
@@ -142,46 +187,44 @@ flag or a count is a one-line set.
 === "Blueprint"
     1. Make a **PTa Bool** (or **PTa Int64**, **PTa Double**, **PTa Name**, …)
        and set its **Value**.
-    2. Feed it into a typed **Set Tagged Data** node whose tag is mapped to that
-       wrapper in the schema — or pack it into a generic container for an
-       untyped set.
+    2. Map the tag to that wrapper in your schema, then feed the wrapper straight
+       into the **Data** pin of a **Set Entity Tagged Data (Typed)** node.
 
 === "C++"
     ```cpp
     // A simple flag under Data.Card.Exhausted.
-    UPTaTaggedDataFunctionLibrary::TrySetTaggedData(
-        Card, ExhaustedTag, FInstancedStruct::Make(FPTaBool{ true }));
+    State->SetTaggedData(Card, ExhaustedTag,
+        FInstancedStruct::Make(FPTaBool{ true }));
 
-    FInstancedStruct Raw;
-    if (UPTaTaggedDataFunctionLibrary::TryGetTaggedData(Card, ExhaustedTag, Raw))
-    {
-        const bool bExhausted = Raw.Get<FPTaBool>().Value;
-    }
+    const FInstancedStruct Raw = State->GetTaggedData(Card, ExhaustedTag);
+    const bool bExhausted = Raw.IsValid() && Raw.Get<FPTaBool>().Value;
     ```
 
 !!! note "Which wrapper for which type"
-    Whole numbers use `FPTaInt64`; floating-point uses `FPTaDouble`. The full
-    list — object and class references, soft paths, transforms, and more — is in
+    Whole numbers use `FPTaInt64` and floating-point uses `FPTaDouble` — there is
+    no 32-bit integer or single-precision float wrapper, and no vector wrapper.
+    The full list — object and class references, soft paths, transforms — is in
     the [Primitive wrappers](reference.md#primitive-wrappers) reference.
 
-## Validate data types on set
+## Validate data types on write
 
-Schema validation catches the mistake of wiring the wrong struct to a tag. With
-it on, setting a struct whose type doesn't match the schema for that tag is
-rejected and logged instead of silently stored.
+The schema catches the mistake of wiring the wrong struct to a tag. With
+validation on, a write whose struct type doesn't match the schema for that tag is
+refused and logged instead of silently stored.
 
 === "Blueprint"
     1. Open **Project Settings → Plugins → Tagged Data**.
     2. Leave **Enforce Schema On Set** enabled (it is on by default).
-    3. Set data whose type doesn't match a mapped tag — the set fails and a
-       warning is logged; correct the struct type to fix it.
+    3. Write a struct whose type doesn't match a mapped tag — the write is
+       refused and a warning is logged naming both the expected and the supplied
+       type. Correct the struct type to fix it.
 
 === "C++"
     ```cpp
     // With Data.Board.Position mapped to FBoardPosition and enforcement on,
-    // this set is rejected because the struct type doesn't match:
-    UPTaTaggedDataFunctionLibrary::TrySetTaggedData(
-        Target, PositionTag, FInstancedStruct::Make(FPTaBool{ true }));
+    // this write is refused and logged — nothing reaches the command stack.
+    State->SetTaggedData(Card, PositionTag,
+        FInstancedStruct::Make(FPTaBool{ true }));
     ```
 
 !!! tip "Tags with no mapping are always allowed"
@@ -189,41 +232,12 @@ rejected and logged instead of silently stored.
     tag that isn't in any schema is never blocked, so you can enforce types on
     your designed keys while leaving room for ad-hoc ones.
 
-## Read and write tagged data on entities
+!!! warning "One half of the gate can't be turned off"
+    **Enforce Schema On Set** governs the *type* check only. The write path also
+    refuses any key outside the `Data.*` namespace, and that check always
+    applies. See
+    [the write gate](../gameentity/reference-entities.md#the-write-gate) for why.
 
-On an entity, tagged data is authoritative game state. The read/write calls look
-like the standalone ones, but they go through the command stack — so they're
-undoable, saved, and replayed — and add template fallback plus automatic tag
-marking. Entity tagged data is reached through the GameEntity game-state
-subsystem rather than the function library (GameEntity is documented in its own
-section).
-
-=== "Blueprint"
-    1. Get the game-state subsystem and hold an **entity reference** to the entity
-       you want to write.
-    2. Call the entity's typed **Set Tagged Data** node against that reference —
-       the write is command-driven and shows up in Undo.
-    3. Read with the entity typed **Get** node: it returns the entity's own
-       value, or falls back to the template's value when the entity hasn't
-       overridden it.
-
-=== "C++"
-    ```cpp
-    // Writing entity data routes through the command stack — undoable.
-    State->SetTaggedData(Card, PositionTag,
-        FInstancedStruct::Make(FBoardPosition{ 3, 2 }));
-
-    // Falls back to the template when this entity has no override.
-    FInstancedStruct Raw = State->GetTaggedData(Card, PositionTag);
-    ```
-
-!!! note "Two behaviours unique to entities"
-    - **Template fallback** — a live entity with no override for a tag reads the
-      value from its template, so many entities can share one authored value.
-    - **Tag marking** — setting tagged data also marks the entity with that tag,
-      so a plain tag query answers "does this entity have `Data.*`?".
-
-    See [Entities as Data](../../concepts/entities-as-data.md) for the entity
-    model, and [Derived State & Events](../../concepts/derived-state.md) for how
-    reactive code (health bars, tooltips) should watch for these writes instead
-    of polling.
+The gate sits at the write call, never inside the command it submits — so
+loading a save, undoing, redoing, and replaying are all exempt. A value that was
+legal when it was stored still loads after you tighten the schema.

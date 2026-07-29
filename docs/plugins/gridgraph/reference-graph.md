@@ -44,12 +44,16 @@ class UGridGraph : public UObject
 };
 ```
 
-!!! note "The graph is a static stage"
-    Ordinary play never edits the graph — units move by writing their own
-    placement, not by touching the board (see
-    [Grids & Occupancy](../../concepts/grids-and-occupancy.md)). Structural edits
-    like severing a bridge are rare and deliberate. That stability is what lets a
-    board hash, save, and rewind identically.
+!!! note "The graph is a static stage — about passability"
+    Units move by writing their own placement, never by touching the board (see
+    [Grids & Occupancy](../../concepts/grids-and-occupancy.md)): a connection
+    means "these cells are linked", never "this unit may pass", so nothing
+    per-unit or per-moment is ever stored here. The *structure* itself can change
+    during play — dig a tunnel, drop a bridge — and when it does it changes
+    through [GridCommands](../gridcommands/index.md), which routes every edit
+    through the command stack. What keeps a board hashing, saving, and rewinding
+    identically is that every change to it is a command, not that changes are
+    rare.
 
 ## Node and edge handles
 
@@ -67,6 +71,20 @@ struct FGridNodeHandle
     // hashable — usable as a TMap/TSet key
 };
 ```
+
+!!! note "Handles are never renumbered and never recycled"
+    A cell's handle is allocated once and belongs to that cell for the life of the
+    board. Removing a cell does not free its index for reuse, and nothing at
+    runtime renumbers the board — so a handle held elsewhere (a unit's placement,
+    a saved selection, an entry in the undo history) either still names the cell
+    it always named, or names a cell that no longer exists. It can never quietly
+    come to mean a *different* cell.
+
+    That is what makes a stale reference **permanently detectable**: `IsValidNode`
+    is a complete test, forever, and undoing the removal makes the very same
+    handle live again. It is also why nothing here needs generation counters or
+    handle versions. The one operation that *does* renumber is a full regenerate,
+    which is [bake-time only](#building-and-editing-structure).
 
 A connection is identified by an `FGridEdgeKey` — an ordered `(From, To)` pair. Edge
 keys are **directional**: tagging or costing `(A, B)` does not touch `(B, A)`. Most
@@ -87,11 +105,11 @@ struct FGridEdgeKey
 Most boards are built once, from a pattern, at edit time — that whole pipeline
 (patterns, conforming to terrain, the **Generate Grid** button) lives in
 [Generation](reference-generation.md). The calls below are the low-level
-construction surface: use them to author a freeform graph by hand, or to make a
-rare, deliberate structural edit to an existing board.
+construction surface: use them to bake a board, or to author a freeform graph by
+hand.
 
 ```cpp
-// --- Regenerate the whole graph ---
+// --- Regenerate the whole graph (BAKE TIME ONLY — see the warning below) ---
 
 // Clear and rebuild from an explicit coordinate set. Each coord becomes a cell,
 // wired to its already-placed coord-neighbors by the topology.
@@ -120,19 +138,114 @@ void AddEdge(FGridNodeHandle From, FGridNodeHandle To, bool bBothDirections = tr
 // Sever a connection and drop its tag / cost data.
 void RemoveEdge(FGridNodeHandle From, FGridNodeHandle To, bool bBothDirections = true);
 
-// Remove every cell, connection, and attached datum.
+// Remove every cell, connection, and attached datum. (Bake time only.)
 void ClearGrid();
 ```
 
 All of these are Blueprint-callable.
 
-!!! warning "Structural edits are not undoable on their own"
-    These mutate the graph directly — they are *not* routed through the command
-    stack, so they do not undo, save, or replay by themselves. That is by design:
-    the board is a static stage, and structural changes are rare authored events.
-    Anything that must survive undo — where a unit stands, who owns what — belongs
-    on an entity as command-routed data, never as a graph edit. See
-    [Grids & Occupancy](../../concepts/grids-and-occupancy.md).
+!!! warning "These mutate the graph directly — they do not undo"
+    Nothing here is routed through the command stack, so a call made during play
+    does not undo, save, or replay, and raises no
+    [structural-change notification](#the-structural-change-notification) for
+    visualizers and occupancy to reconcile against. They are the *apply surface*
+    the command family drives, not a gameplay API.
+
+    **To change a board at runtime, submit a command instead.** Every edit above
+    has a counterpart in the [GridCommands](../gridcommands/index.md) plugin —
+    add/remove a cell, add/remove a connection, tags, heights, cost overrides —
+    which applies it through the command stack so the change rewinds with
+    everything else. See [its guides](../gridcommands/guides.md) for the call
+    sequence.
+
+!!! warning "The regenerate calls are bake time only"
+    `GenerateGridFromCoords`, `GenerateGridFromPattern`, and `ClearGrid` clear the
+    board and **renumber every handle**. That is fine for initial generation and
+    an editor re-bake, and catastrophic on a live board: every handle held
+    anywhere else — unit placements, saved selections, the undo history — silently
+    starts meaning a different cell. Do not call them at runtime. The runtime
+    equivalent of "re-read the level and update the board" is a
+    [re-conform](reference-generation.md#re-conforming-at-runtime), which is a
+    coordinate diff that keeps surviving cells' handles.
+
+## The structural-change notification
+
+When the board's structure changes through the command family, the graph
+publishes a **structural delta** describing exactly what changed. This is the
+signal anything that mirrors the board — a visualizer, the entity occupancy
+index, a navigation cache — keeps itself current from.
+
+```cpp
+// One added or removed cell. For a removed cell the coordinate is the one it had;
+// for an added cell it is read from the live board.
+struct FGridStructuralNodeChange
+{
+    FGridNodeHandle Handle;
+    FIntVector      Coord;
+    bool            bHasCoord;
+};
+
+// Everything that changed inside one change scope.
+struct FGridStructuralDelta
+{
+    TArray<FGridStructuralNodeChange> AddedNodes;    // cells that came into existence
+    TArray<FGridStructuralNodeChange> RemovedNodes;  // cells that ceased to exist
+    TArray<FGridEdgeKey>              AddedEdges;    // connections added
+    TArray<FGridEdgeKey>              RemovedEdges;  // connections severed on their own
+    TArray<FGridNodeHandle>           SurfaceChangedNodes;  // surviving cells whose tags or height changed
+    TArray<FGridEdgeKey>              SurfaceChangedEdges;  // surviving connections whose tags or cost changed
+};
+
+// Subscribe from C++.
+FOnGridStructureChanged UGridGraph::OnStructureChanged;   // void(const FGridStructuralDelta&)
+```
+
+`FGridStructuralDelta` and `FGridStructuralNodeChange` are Blueprint-readable
+value types, so a Blueprint function can take one as a parameter — but the
+delegate itself is native.
+
+!!! note "C++ only — and Blueprint has a bridge"
+    `OnStructureChanged` is a plain C++ multicast delegate, deliberately not
+    Blueprint-assignable: the payload is a rich value struct and every consumer of
+    it is native. Blueprint-side, the
+    [grid component](#hosting-a-grid-in-the-world) forwards a structural change
+    into its own **On Grid Rebuilt** event, so a Blueprint visualizer that already
+    rebuilds on that event keeps working with no changes.
+
+Four properties of the notification decide how you write a handler:
+
+- **It fires on undo too.** The delta always describes *the change that just
+  happened*, in whichever direction: undoing an add reports a **removed** cell,
+  undoing a removal reports an **added** one. Derived state cannot tell the
+  difference and must not need to.
+- **A removed cell implies its connections.** Connections that vanished because
+  their cell vanished are *not* listed in `RemovedEdges` — they are implied by
+  `RemovedNodes`. Only connections severed on their own appear there.
+- **Surface changes name the affected cell or connection, not the field.** You
+  are told *what* changed, and re-read the current value.
+- **Batching is forward-only.** See the warning below.
+
+!!! warning "One notification forward, N back"
+    A brush stroke of N commands wrapped in a
+    [transaction scope](../gridcommands/reference.md#the-transaction-scope)
+    raises **one** batched notification when it is submitted — but **N** when it
+    is undone, and **N** when it is redone. The grouping is applied on the forward
+    pass only.
+
+    That is harmless to a handler written as an **idempotent reconciler** — given
+    the delta, make your mirror agree with the board, and be safe to run again —
+    which is how the shipped consumers are written. It will quietly break a
+    handler that does per-notification bookkeeping: a version counter, one
+    animation per notification, an append-only change log. Don't count
+    notifications; reconcile from them.
+
+This is a different signal from `OnGridRebuilt`, and mixing them up is the easy
+mistake:
+
+| Signal | Meaning | Fires for |
+|---|---|---|
+| `OnStructureChanged` | *These specific things changed* — reconcile incrementally. | Every command-routed structural edit, on both apply and undo, and the runtime full re-conform. |
+| `OnGridRebuilt` | *Everything changed, resync from scratch.* | The editor bake, an editor rebuild, and the handle-stable re-conform. |
 
 ## Core queries
 
@@ -161,6 +274,24 @@ TArray<FGridNodeHandle> ResolveOffsetPattern(FGridNodeHandle Center, const FGrid
 graph is linked, but not step costs or a unit's abilities. For "how far can *this*
 unit actually get," that is a movement query, covered in
 [Movement](reference-movement.md).
+
+!!! warning "`GetNeighbors` on the grid, `GetLatticeNeighbors` on the topology"
+    Two different questions, and only one of them is about connections:
+
+    - **`UGridGraph::GetNeighbors`** reads the graph's connection list. *"What can
+      I actually reach from here?"* — the authoritative answer, and almost
+      certainly the one you want: pathing, reachability, movement.
+    - **`UGridTopology::GetLatticeNeighbors`** returns whatever cell happens to
+      sit at an adjacent *coordinate*, computed from lattice offsets without
+      consulting a single connection. *"What does the lattice look like here?"* —
+      generation, outline extraction, terrain conforming.
+
+    They agree on a freshly generated board and **diverge the moment connectivity
+    is edited at runtime**: sever a connection between two cells that both still
+    exist, and the grid call reports them as unconnected while the lattice call
+    still reports them as neighbours. Since editing connectivity at runtime is
+    exactly what [GridCommands](../gridcommands/index.md) makes routine, be
+    deliberate about which one you call.
 
 !!! note "`FGridOffsetPattern` is the lightweight one"
     `FGridOffsetPattern` is just a baked list of coordinate offsets relative to a
@@ -281,9 +412,12 @@ class UGridTopology : public UObject
     bool            TryGetCoord(FGridNodeHandle Handle, FIntVector& OutCoord) const;
     FIntVector      ApplyOffset(FIntVector Coord, FIntVector Offset) const;
 
-    // Neighbors and distance.
-    TArray<FGridNodeHandle>           GetNeighbors(FGridNodeHandle Handle) const;
+    // Lattice neighbors and distance. GetLatticeNeighbors returns whatever cells sit
+    // at adjacent COORDINATES — pure shape math, never a connection. For "what can be
+    // reached from here", call UGridGraph::GetNeighbors instead.
+    TArray<FGridNodeHandle>           GetLatticeNeighbors(FGridNodeHandle Handle) const;
     TArray<FGridPlanarNeighborOffset> GetPlanarNeighborOffsets() const;
+    bool                              ClassifyPlanarOffset(FIntVector Offset, EGridPlanarNeighborKind& OutKind) const;
     int32                             GetDistance(FGridNodeHandle A, FGridNodeHandle B) const;
 
     // World placement (local space, relative to the host actor).
@@ -296,7 +430,7 @@ class UGridTopology : public UObject
 
 `GetPlanarNeighborOffsets` is the single source of truth for a topology's in-plane
 neighbor directions — each tagged **cardinal** (shares a cell edge) or **diagonal**
-(shares only a corner). Neighbor generation, outline extraction, and terrain
+(shares only a corner). Lattice-neighbor generation, outline extraction, and terrain
 conforming all read it, so a topology never repeats its own direction list.
 
 ```cpp
@@ -309,11 +443,90 @@ struct FGridPlanarNeighborOffset
 };
 ```
 
+`ClassifyPlanarOffset` is the reverse lookup, resolved against that same table:
+hand it a coordinate delta and it tells you whether that step is cardinal or
+diagonal *for this lattice*. It returns false — classifying nothing — for a delta
+that is not one of the lattice's own directions: a purely vertical step, a
+multi-cell or off-lattice hop (a placed link, a cliff jump, a teleport), or any
+coordinate-less topology.
+
+!!! note "Cardinal versus diagonal is a property of the lattice"
+    It is tempting to classify a step by counting how many coordinate axes it
+    changes. That is right for a square and wrong for a hex, whose six sides are
+    *all* cardinal even though two of them move on both axes and are exactly as
+    far apart as the other four. Anything that prices or reasons about step
+    direction should ask the topology, which is what the shipped
+    [diagonal cost modifier](reference-movement.md#cost-modifiers-what-movement-costs-what-is-forbidden)
+    does.
+
+### Rotation and forward direction
+
+A topology also owns the answer to "which way is this unit facing?" and "what does
+its shape look like turned 90°?" — the questions a multi-cell unit with an
+orientation asks. Rotation is expressed in whole **steps**, never in degrees, so it
+is exact and replays identically.
+
+```cpp
+// How many discrete turns map the lattice onto itself: square 4, hex 6, freeform 1.
+int32      GetRotationStepCount() const;
+float      GetRotationStepAngleDegrees() const;   // 360 / step count
+
+// Turn an anchor-relative offset by whole steps. Negative steps are fine; Z passes
+// through untouched. Freeform's single rotation maps every offset to itself.
+FIntVector RotateOffset(FIntVector Offset, int32 Steps) const;
+
+// The direction a unit at rotation step 0 faces, and at any step.
+FIntVector GetForwardOffset() const;
+FIntVector GetStepDirection(int32 Steps) const;
+```
+
+Rotating a set of offsets by *k* steps gives the same result as yaw-rotating the
+resolved world positions by *k* step-angles — the coordinate math and the visible
+transform agree by construction, so a rotated footprint never drifts from the model
+the player sees.
+
+!!! note "Hex facing points at a neighbour, not at a corner"
+    Square step 0 faces `+X`. Hex step 0 faces `+Q` — the eastern neighbour — so
+    each of the six hex directions points squarely at an adjacent cell. If your game
+    wants units facing hex *corners* instead, offset the cosmetic facing by half a
+    step and leave the logical rotation alone.
+
+A freeform board has one rotation step and a degenerate forward direction, so
+orientation is meaningless there — the calls stay safe, they just do nothing.
+
+Two grid-level helpers turn those offsets into actual cells:
+
+```cpp
+// Resolve an anchor + rotated offsets into cells. Offsets that land off the board
+// are dropped silently; an empty offset list resolves to the anchor alone.
+bool UGridGraph::ResolveRotatedOffsets(FGridNodeHandle Anchor,
+    const TArray<FIntVector>& Offsets, int32 Steps,
+    TArray<FGridNodeHandle>& OutHandles) const;
+
+// Is this set of cells one connected body? Missing connections split it; edges
+// carrying any of SeveringEdgeTags sever it too (a closed drawbridge).
+bool UGridGraph::AreCellsMutuallyConnected(const TArray<FGridNodeHandle>& Cells,
+    FGameplayTagContainer SeveringEdgeTags,
+    bool bTreatSameColumnLayersAsConnected = true) const;
+```
+
+`ResolveRotatedOffsets` **fails soft**: it reports which cells exist and never
+judges whether the result is a legal place to stand. Overhanging a board edge and
+being split by a wall are two different questions — the second is
+`AreCellsMutuallyConnected`, which is what stops a two-cell unit straddling a
+chasm. Both are shared primitives: spawn validation, UI previews, and the movement
+gates all call them, so your own checks agree with the framework's.
+
+For the entity-facing layer built on all of this — a unit's stored rotation, its
+footprint shape, and the front/flank/rear arcs — see
+[Facing & Arcs](../gridentity/reference-facing.md) and
+[Footprints](../gridentity/reference-footprints.md) in GridEntity.
+
 ### Square
 
 `USquareTopology` — Cartesian coordinates, four-way by default and eight-way when
 diagonals are allowed. It can wire whole stacked levels together vertically for a
-multi-storey board.
+multi-storey board. Four rotation steps; step 0 faces `+X`.
 
 ```cpp
 class USquareTopology : public UGridTopology
@@ -330,6 +543,7 @@ class USquareTopology : public UGridTopology
 
 `UHexTopology` — six neighbors on **axial coordinates** (Q maps to X, R to Y). Same
 tile-size / level-height / origin knobs as square, minus diagonals (a hex has none).
+Six rotation steps; step 0 faces `+Q`, the eastern neighbour.
 
 ```cpp
 class UHexTopology : public UGridTopology
@@ -350,7 +564,8 @@ class UHexTopology : public UGridTopology
 set by hand, and neighbors are exactly the connections you wire with `AddEdge`.
 `SupportsCoordinates()` is false, and seed patterns don't apply — build a freeform
 graph with the [construction API](#building-and-editing-structure) plus
-`SetNodePosition`.
+`SetNodePosition`. It has a single rotation step, so orientation and multi-cell
+footprints don't apply to a freeform board.
 
 ```cpp
 class UFreeformTopology : public UGridTopology
@@ -396,7 +611,10 @@ class UGridGraphComponent : public UActorComponent
     // Blueprint-assignable events.
     FOnGridNodeEvent OnNodeSelected;
     FOnGridNodeEvent OnNodeHovered;
-    FOnGridRebuilt   OnGridRebuilt;   // fires after a (re)build; visualizers subscribe
+    // Fires after a (re)build; visualizers subscribe. The component also forwards a
+    // runtime structural change into it, so a Blueprint visualizer bound here keeps up
+    // with a board edited during play (rebuilding wholesale each time).
+    FOnGridRebuilt   OnGridRebuilt;
 };
 ```
 

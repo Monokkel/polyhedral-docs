@@ -86,15 +86,15 @@ cues, handlers, and capabilities.
 | `FPTkCue` | A semantic "what happened" message addressed to one entity's visuals — an intent tag, an optional instigator, a typed payload. |
 | `UPTkCueContext` | The async-completion handle a cue carries — a handler calls **Complete** when its visual finishes so the sequence moves on. |
 | `UPTkCueHandler` | A reusable, tag-keyed unit of visual logic that renders one cue against a token through the token's capabilities. |
-| Capabilities (`IPTkMovable`, `IPTkMontageCapable`, `IPTkStatDisplay`, `IPTkPreviewable`, `IPTkGhostable`) | Small opt-in interfaces a token advertises so a handler can drive it without knowing its concrete class. |
+| Capabilities (`IPTkMovable`, `IPTkOrientable`, `IPTkMontageCapable`, `IPTkStatDisplay`, `IPTkPreviewable`, `IPTkGhostable`) | Small opt-in interfaces a token advertises so a handler can drive it without knowing its concrete class — travel a path, turn to face, play a reaction, animate a number, paint a preview, go ghostly. |
 | `UPTkEntityWidget` | A readout bound to one entity and one value — the building block for HUD party frames and character sheets. |
 | `UPTkTokenSettings` | Project settings: the per-category and default fallback token classes. |
 
 ## Where to go next
 
 - **[Guides](guides.md)** — task recipes: giving an entity a token, writing a cue
-  handler, driving a token through a capability, playing a cue yourself, and
-  binding an entity widget to one value.
+  handler, driving a token through a capability, turning a token to face a
+  direction, playing a cue yourself, and binding an entity widget to one value.
 - **[API Reference](reference.md)** — the full public surface, grouped by area,
   with clean signatures and short examples.
 - **[Tokens & Cues](../../concepts/tokens-and-cues.md)** — the model and the

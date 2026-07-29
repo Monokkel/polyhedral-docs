@@ -159,11 +159,13 @@ consult:
 
 ```cpp
 // One scheduled participant as the projection sees it: the entity and a read-only
-// view of its schedule entry. Transient — a window into live state, never stored.
+// COPY of its schedule entry, held BY VALUE. Transient — a snapshot of live state,
+// never stored.
 struct FPTsParticipant
 {
-    FPGeEntityRef           Ref;
-    const FInstancedStruct* Entry = nullptr;   // the policy-declared entry struct
+    FPGeEntityRef    Ref;
+    FInstancedStruct Entry;   // the policy-declared entry struct, resolved through
+                              // the template when the entity holds no override
 };
 
 // What a policy is handed. Participants arrive pre-sorted by entity serial (the
@@ -184,6 +186,20 @@ struct FPTsReadFacets
     FGameplayTagContainer TaggedDataKeys;   // tagged-data keys whose write matters
 };
 ```
+
+!!! warning "`Entry` is a value — read it directly, don't dereference it"
+    A participant's schedule entry is held **by value**. Read it as
+    `Participant.Entry.Get<FMyEntry>()`; there is no pointer to test and no null
+    case to branch on. An entry the entity does not actually carry a value for
+    arrives *empty* — check `Entry.IsValid()` if your policy needs to be strict.
+
+    This matters beyond syntax: a participant's entry may come from its
+    **template** rather than from the entity's own override, and it resolves the
+    same way every other tagged-data read does. A pointer could only ever have
+    aimed at the entity's own overrides, so a unit created from a template that
+    declares the schedule entry would have arrived with nothing and been skipped
+    by every policy — present on the board, absent from the turn order. Reading
+    the value gets both cases right.
 
 The **one shipped preset** is side-based (sometimes called I-go-you-go): each side
 takes its whole turn, then play passes to the next side, and one full cycle of the
@@ -218,12 +234,14 @@ struct FPTsSchedulerPolicy_Igougo : public FPTsSchedulerPolicy
 };
 ```
 
-!!! tip "The preset is not privileged"
-    An initiative list, a time-unit or charge-gauge timeline where the fastest unit
-    acts next, or anything you author plugs into the exact same base type. Only
-    under a policy that ranks by a speed stat does "slow" or "haste" reorder the
-    strip — the shipped side-based preset ranks by entity serial and will not. See
-    [Write a scheduler policy](guides.md#write-a-scheduler-policy).
+!!! tip "The preset is not privileged — and it is the only one"
+    Side-based is the **only** scheduler policy the framework ships. An initiative
+    list, or a time-unit or charge-gauge timeline where the fastest unit acts next,
+    is something you write — it plugs into the exact same base type, with no
+    privileged access the preset has and yours doesn't. Note the consequence for
+    ordering: only under a policy that ranks by a speed stat does "slow" or "haste"
+    reorder the strip. The side-based preset ranks by entity serial and will not.
+    See [Write a scheduler policy](guides.md#write-a-scheduler-policy).
 
 ## The scheduler subsystem
 
@@ -238,7 +256,8 @@ static UPTsSchedulerSubsystem* Get(const UObject* WorldContextObject);
 ```
 
 Participation — thin, command-routed helpers over the entity's `Data.Turn.Schedule`
-tagged data. An entity participates if and only if it carries that key.
+tagged data. An entity participates if and only if it carries that key, **whether
+the value is its own override or one its template supplies**.
 
 ```cpp
 // Add Entity to the turn order by writing its schedule Entry (command-routed).
@@ -247,9 +266,19 @@ tagged data. An entity participates if and only if it carries that key.
 // entity does not exist.
 bool JoinTurnOrder(FPGeEntityRef Entity, const FInstancedStruct& Entry);
 
-// Remove Entity from the turn order. False if it was not participating.
+// Remove Entity from the turn order — command-routed, and it works for a
+// template-provided entry as well as an entity's own. False if the entity was not
+// participating at all.
 bool LeaveTurnOrder(FPGeEntityRef Entity);
 ```
+
+!!! tip "Put the schedule entry on the template and every spawn joins itself"
+    Because participation is "does this entity carry the key", authoring the
+    schedule entry on a unit **template** puts every unit created from it in the
+    turn order with no `JoinTurnOrder` call at spawn. `LeaveTurnOrder` still pulls
+    one out: it hides the key for that one entity — an undoable, per-instance
+    exit — rather than trying to edit the shared template. Call `JoinTurnOrder`
+    to bring it back.
 
 The active policy — stored as ordinary match state on the tracker, so it saves,
 undoes, and rides into previews with the match. You can swap it mid-match as an

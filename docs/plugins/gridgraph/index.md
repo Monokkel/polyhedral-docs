@@ -17,6 +17,12 @@ linked," never "this unit may pass," so nothing about a specific unit's movement
 ever stored on the board. It is what lets the same board hash, save, and rewind
 identically, and it is why a replay never drifts.
 
+The stage is static about *passability*, not frozen. A board can be dug, collapsed,
+or built up during play — through the
+[GridCommands](../gridcommands/index.md) plugin, which routes every structural edit
+through the command stack, so a runtime change to the board undoes and replays
+alongside the action that caused it.
+
 !!! note "Read the concept first"
     This page is the plugin's overview; it assumes you know the model. If you don't
     yet, start with
@@ -32,10 +38,13 @@ and a game with no game-entity layer at all can build a board, run a reachabilit
 flood, and draw the result. GridGraph owns the grid data, the shape math, generation,
 the movement engine, and the on-screen presenters — the whole spatial layer.
 
-What it deliberately does *not* own is any tie to your game's units. Placing an entity
-on a cell, asking "who is standing here?", and granting a unit the boots that let it
-leap — those bind the grid to game entities and live in the **GridEntity** plugin,
-documented in its own section. GridGraph never inspects entity state: the movement
+What it deliberately does *not* own is any tie to your game's units, and it does not
+own undo. Placing an entity on a cell, asking "who is standing here?", and granting a
+unit the boots that let it leap — those bind the grid to game entities and live in the
+**GridEntity** plugin, documented in its own section. Editing the board's structure
+*undoably* at runtime lives in **[GridCommands](../gridcommands/index.md)**, which
+turns each edit into a command; GridGraph publishes the surface it drives and the
+change notification it raises, and depends on neither. GridGraph never inspects entity state: the movement
 query takes a plain snapshot of a unit's tags and stats and reads the board through a
 read-only view of the live board, so it stays a pure function you can replay. Because
 the grid itself is a self-contained value that saves and reloads verbatim, and a
@@ -88,5 +97,7 @@ pattern for a blast and reachability for movement, never the reverse.
   pathfinding surface, and how a per-unit movement profile is assembled.
 - **[Visualization](reference-visualization.md)** — the visualization driver,
   profiles, and presenters.
+- **[GridCommands](../gridcommands/index.md)** — editing the board at runtime as
+  undoable commands: digs, collapses, in-game level editors.
 - **[Grids & Occupancy](../../concepts/grids-and-occupancy.md)** — the model and the
   rationale behind the static-stage rule.

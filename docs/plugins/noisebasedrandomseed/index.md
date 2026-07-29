@@ -13,6 +13,13 @@ gets its own seed (derived from one root seed plus the tag) and its own cursor, 
 draws in one domain never disturb another: shuffling loot doesn't shift what the AI
 rolls next. Under the hood it's SquirrelNoise5 — fast, seekable, and deterministic.
 
+!!! note "Ships inside Polyhedral Core"
+    NoiseBasedRandomSeed is a **module** of the
+    [PolyhedralCore](../polyhedralcore/index.md) plugin, alongside CommandSystem,
+    QueueFramework, and TagEvents. You enable `PolyhedralCore` in your `.uplugin` or
+    `.uproject`; from C++ you depend on `NoiseBasedRandomSeed` by name in your
+    `.Build.cs`.
+
 !!! note "A determinism primitive, not a gameplay system"
     NoiseBasedRandomSeed knows nothing about entities, commands, or turns — it just
     hands out numbers that are reproducible from a seed. It's the RNG other systems

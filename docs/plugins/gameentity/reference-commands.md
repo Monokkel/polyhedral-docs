@@ -65,6 +65,14 @@ broadcast are in the [events reference](reference-events.md).
 | `AddTag(EntityRef, Tag)` | Add a gameplay tag | `FPGeCmd_AddTag` |
 | `RemoveTag(EntityRef, Tag)` | Remove a gameplay tag | `FPGeCmd_RemoveTag` |
 
+!!! warning "`RemoveTag` refuses a tag that mirrors stored data"
+    A tagged-data entry is readable only while its mirror tag is present, so
+    stripping that tag with `RemoveTag` would leave a value stored and unreachable.
+    The call **returns `false` and logs** instead, naming the route you wanted:
+    `RemoveTaggedData` to clear the entity's own value, or
+    `ShadowTemplateTaggedData` to hide a value its template supplies. Ordinary tags
+    are unaffected — this only bites when the tag is a mirror.
+
 ### Base stats
 
 | Subsystem method | What it does | Command |
@@ -92,10 +100,15 @@ broadcast are in the [events reference](reference-events.md).
 | Subsystem method | What it does | Command |
 |---|---|---|
 | `SetTaggedData(EntityRef, Tag, Value)` | Set a typed struct value keyed by tag | `FPGeCmd_SetTaggedData` |
-| `RemoveTaggedData(EntityRef, Tag)` | Remove a tagged-data entry | `FPGeCmd_RemoveTaggedData` |
+| `RemoveTaggedData(EntityRef, Tag)` | Clear this entity's own value, falling back to its template's | `FPGeCmd_RemoveTaggedData` |
+| `ShadowTemplateTaggedData(EntityRef, Tag)` | Make the key **absent for this entity**, even when its template supplies a value | `FPGeCmd_RemoveTaggedData` |
 
-See the [entities & tagged-data reference](reference-entities.md) for what tagged
-data is and how reads delegate to a template.
+Note the difference between the last two. `RemoveTaggedData` clears an override, so
+a template-provided value becomes visible again; `ShadowTemplateTaggedData` makes
+the key absent outright for that one entity, without touching the shared template.
+Both are ordinary undoable commands. See the
+[entities & tagged-data reference](reference-entities.md) for what tagged data is
+and how reads delegate to a template.
 
 ### Hierarchy (parent / child)
 
@@ -172,6 +185,22 @@ Recording is driven by the replay subsystem, `UPGeReplaySubsystem`
     transaction is mid-flight. Both calls return `false` (with a log warning) if
     the boundary is illegal, so check the return value rather than assuming
     success.
+
+!!! tip "A recording that has captured nothing yet will re-anchor itself"
+    A recording embeds a baseline describing the state it starts from. If a
+    [state slice](#extending-the-state-hash-and-the-save-file) registers *after* the
+    recording began — the ordinary case, since a world-scoped system comes up later
+    than a game-instance one — that baseline would describe a different composition
+    from every checkpoint after it, which reads back as a divergence on the very
+    first frame.
+
+    So the recorder watches for the composition changing. While the recording is
+    still empty (nothing but its anchor on disk), it silently rewrites the baseline
+    on the new composition. Once real frames exist it refuses and warns instead —
+    re-anchoring there would rewrite history. In practice this means you can let
+    auto-recording start early and register slices at world start-up without
+    sequencing the two by hand; what you must not do is register a new slice
+    *mid-recording* and expect the log to stay verifiable.
 
 Only the *authoritative* timeline is recorded. When the ability system (documented in
 [Abilities and step-by-step resolution](../../concepts/abilities-and-resolution.md#what-if-runs-previews-and-enemy-ai))
@@ -268,12 +297,120 @@ Replay options live in **Project Settings → Plugins → Game Entity Replay**
 | **Auto Record In Development** | Start recording automatically when the subsystem initializes. On in development builds, off in shipping. A game can always record explicitly with `StartRecording` regardless. |
 | **Checkpoint Every Entry** | Write an integrity checkpoint after *every* command, not just at natural boundaries. Costly — a diagnostic aid for narrowing down exactly where a replay diverges. Off by default. |
 
-**Checkpoints** are the log's integrity marks. Each records a hash of canonical
-game state at that moment; on playback the hash is recompared, and a mismatch is a
-divergence. The framework writes them automatically at meaningful boundaries — the
+**Checkpoints** are the log's integrity marks. Each records the **state hash** at
+that moment — entity state plus every registered state slice; on playback the hash
+is recomputed and compared, and a mismatch is a divergence. The framework writes them automatically at meaningful boundaries — the
 start and end of a recording, turn advances, and scope closes — and you can add
 your own labelled marks with `RequestCheckpoint(Label)` around anything you want
 to be able to verify.
+
+## Extending the state hash and the save file
+
+Everything above assumes the state worth protecting is *entity* state. Often it
+isn't all of it. If you build a system with its own authoritative substrate — a
+board's cell graph, a deck's shuffle state, a fog-of-war grid — that state needs to
+join the same guarantees: it must fold into the **state hash** so a replay
+checkpoint catches it drifting, and it must ride along in the **save file** so a
+load restores it.
+
+You do that by registering a named **state slice** with the game-state subsystem: a
+deterministic encoder that appends your bytes, and an optional decoder that applies
+them back. From then on your state is part of the framework's one digest and one
+save, under one version stamp — you do not maintain a parallel save path.
+
+!!! note "C++ only"
+    This is a C++ extension surface — there are no Blueprint nodes for it. It is
+    aimed at a plugin or module author adding a new kind of state, not at content
+    authoring.
+
+```cpp
+// What you supply. The encoder appends your slice's deterministic byte stream; the
+// decoder applies a saved stream back onto your live substrate.
+using FPGeCanonSliceEncoder = TFunction<void(TArray<uint8>& OutBytes)>;
+using FPGeCanonSliceDecoder = TFunction<bool(const TArray<uint8>& Bytes, uint32 SliceVersion)>;
+
+// Register under a name, with your own version number for your own byte format.
+// Returns false if that name is already registered. A null decoder gives you a
+// hash-only slice: it folds into the hash and is written to saves, but a loaded
+// blob for it is skipped with a warning.
+bool RegisterCanonSliceEncoder(FName SliceName, uint32 SliceVersion,
+                               FPGeCanonSliceEncoder Encoder,
+                               FPGeCanonSliceDecoder Decoder = nullptr);
+
+void UnregisterCanonSliceEncoder(FName SliceName);   // silent no-op if absent
+bool IsCanonSliceRegistered(FName SliceName) const;
+int32 GetCanonSliceCount() const;
+```
+
+Registering is a few lines at the point your substrate comes up:
+
+```cpp
+UPGeGameStateSubsystem* State = UPGeGameStateSubsystem::Get(this);
+
+State->RegisterCanonSliceEncoder(
+    TEXT("Deck"), /*SliceVersion=*/1,
+    [this](TArray<uint8>& OutBytes)          { EncodeDeckState(OutBytes); },
+    [this](const TArray<uint8>& Bytes, uint32 Version)
+    {
+        return DecodeDeckState(Bytes, Version);   // false = nothing was touched
+    });
+```
+
+Four rules to build against:
+
+- **Encoding must be deterministic.** The same substrate must produce the same
+  bytes every time, on every machine — that is the whole point of folding into a
+  hash. All registered slices are folded in sorted registration-name order, so the
+  order you register in never affects the digest.
+- **A decoder parses fully before it mutates anything.** Returning `false` must
+  mean *nothing was touched* — an atomic fail. Finish by broadcasting whatever
+  wholesale-resync signal your own consumers rebuild from.
+- **Decoders run before the entity-state swap.** So by the time change-event
+  consumers see the state-restored notification, your substrate is already the
+  restored one and they can rebuild against it.
+- **Version your own bytes.** `SliceVersion` is yours, independent of the
+  framework's stamps. A save carrying a *newer* version of your slice than the
+  runtime registered refuses the whole load rather than guessing.
+
+!!! warning "Registration is per game instance, and it is not permanent"
+    Slices are registered on the **game-state subsystem instance**, not
+    process-wide. Two game instances in one process (a Play-In-Editor multiplayer
+    session, say) each carry their own registrations, and neither can stomp the
+    other's. The practical consequence: re-register when your substrate comes up in
+    a world, and do not assume a registration made in one session is visible in
+    another.
+
+    Because the set of slices can change during a session, anything holding a
+    digest taken earlier is describing a different composition afterwards. The
+    subsystem publishes a C++ notification when the set changes so a holder can
+    react; the replay recorder is the framework's own consumer of it (see below).
+    A listener on it observes only — it must never mutate state or submit a
+    command.
+
+Two hashing functions exist, and on an instance carrying slices they answer
+differently. The instance's own `HashState()` folds registered slices;
+`HashGameState(Snapshot)` is a pure function of an entity-state snapshot and never
+does. `HashStateUncounted()` is the composed digest again, for a development-time
+comparison that must not perturb the framework's own accounting. If you are
+comparing two numbers and they disagree, check you are not comparing across that
+line.
+
+### What a save reports about slices
+
+A load never silently drops a slice. `FPGeSaveLoadReport` gains
+`UnappliedSlices` — the names of every slice that did not round-trip, in **both**
+directions:
+
+- a blob in the save with no registered slice or decoder to apply it (a save from a
+  build that had a system this one doesn't), and
+- a registered slice the save carried no blob for (an older save written before
+  that slice existed).
+
+Each is skipped with a warning and **the load proceeds**, leaving that slice's live
+state untouched — so a game can inspect the list and decide whether to warn,
+repair, or carry on. A blob that *is* routable but refuses — a newer slice version,
+or a decoder that fails to parse — refuses the whole load instead, with `bRefused`
+and a reason, matching how the framework treats every other version mismatch.
 
 ## Save and replay versioning
 
@@ -289,3 +426,9 @@ That is all a consumer needs to know: an incompatible file is detected and
 declined cleanly. The on-disk byte layout is an internal detail and is not part of
 the public API. A refused replay load surfaces as `bLoaded == false` with a reason
 on the report, exactly like the clean-fixture guard above.
+
+Both stamps advanced when the state-slice seam landed: the state encoding now folds
+registered slices into its digest, and a save now carries their byte streams. Both
+migrations are free in the forward direction — a save written before the change
+loads normally, with its (absent) slices reported in `UnappliedSlices` rather than
+refused. With no slice registered at all, nothing about either format changes.

@@ -25,16 +25,18 @@ illustrative, not source excerpts.
 
 A trigger is not code and not a runtime registration — it is a **data entry an entity
 carries**, under the `Data.Ability.Triggers` tagged-data key. Its value is a list of
-trigger specs, so one entity can carry several triggers at once. Each spec answers six
-questions:
+trigger specs, so one entity can carry several triggers at once. Each spec answers a
+handful of questions:
 
 | Field | What it says |
 |---|---|
 | **Event Tag** | Which window to listen on — a stat or tag for a native change window (`Stat.Health`), or an `Event.Window.*` moment for a [declaration window](#declaration-windows). |
 | **Channel** | *Whose* window: **Self** (my own — "when I take damage"), **Parent** (my owner's — how a granted buff reacts for the unit it sits on), or a window **resolved from a target source** (my summoner, the party leader). |
 | **Order** | An integer whose **sign picks the phase** and whose magnitude breaks ties — see [Interrupt vs reaction](#interrupt-vs-reaction-the-orders-sign). |
+| **Phase** | *Which broadcast* of that window to subscribe to — **Main** (the default: everything else on this page) or **Intent** — see [The intent phase](#the-intent-phase). |
 | **Condition** | An optional gate evaluated when the trigger fires. Empty means it always fires. |
 | **Auto Target** | What the reacting program starts aimed at — nothing, the entity that *caused* the change, the entity that *took* it (the default), or the reactor itself. |
+| **Speculation Policy** | What a preview or an AI trial should *assume* this trigger does, when answering it would need input from another player — see [What a preview assumes](#what-a-preview-assumes-about-your-trigger). |
 | **Program Override** | The [ability program](reference-programs.md) to run when it fires. Leave it unset to run the entity's own `Data.Ability.Program`; set it so a passive can react with something other than its active use. |
 
 Because the trigger is entity data, **who is listening undoes, saves, and replays with
@@ -65,8 +67,10 @@ revoke it and the listener is gone. Both are ordinary, undoable entity changes.
         EPAbTriggerChannel                   Channel;         // whose window
         UPAbSourceAccessor*                  ChannelAccessor; // resolves the entity for the target-source channel
         int32                                Order;           // sign picks the phase; magnitude is the tiebreak
+        EPEsEventPhase                       Phase;           // Main (default) or Intent
         TInstancedStruct<FEvalConditionCalc> Condition;       // optional gate; empty = always fires
         EPAbTriggerAutoTarget                AutoTarget;       // what the reacting program starts aimed at
+        EPAbSpeculationPolicy                SpeculationPolicy;// what a preview assumes this trigger does
         TSoftClassPtr<UPAbAbilityProgram>    ProgramOverride;  // run this instead of the entity's own program
     };
 
@@ -170,6 +174,61 @@ anything they set in motion. That is the same
 [cascade-is-one-undo-step](../../concepts/events-and-reactions.md#a-cascade-is-one-undo-step)
 rule the events page established.
 
+## The intent phase
+
+**Order** decides *when within a broadcast* a trigger runs. **Phase** decides *which
+broadcast it subscribes to at all* — a second, independent axis.
+
+| Phase | The moment it fires |
+|---|---|
+| **Main** (default) | The window everything above describes: the interrupt phase, then the commit, then the reaction phase. Every trigger authored before this field existed behaves exactly this way. |
+| **Intent** | A **pre-proposal** broadcast, fired against fully committed state *before* any proposal or transaction for the change exists — "I am about to change this stat", not "here is the proposed number". |
+
+The intent phase exists to answer one need: a response that must happen **before** a
+change lands *and* needs to ask a person. Because the intent broadcast commits
+nothing and holds nothing open, a trigger listening on it behaves differently from a
+Main-phase one:
+
+- **Negative order on the intent phase** is a synchronous shaper or veto of the
+  *declaration* itself.
+- **Zero-or-positive order on the intent phase** *may pause for input* — a
+  counterattack prompt, resolved before the original change is even proposed.
+
+That is the whole authoring cost: the same trigger spec you already write, plus this
+one field. The emitting side authors nothing — an ordinary windowed change already
+broadcasts its intent.
+
+=== "Blueprint"
+    1. Author the trigger exactly as you would any reaction: **Event Tag**
+       `Stat.Health`, **Channel** **Parent**, **Order** `0`, a **Program Override**
+       that opens the counterattack prompt.
+    2. Set **Phase** to **Intent**. That is the only difference — the reaction now
+       resolves before the incoming change is proposed rather than after it commits.
+
+!!! note "Main is still the right default"
+    Use the intent phase when the *ordering* genuinely matters — the response has to
+    land before the change. A retaliation, a bleed, an on-hit counter and every other
+    "answer what just happened" rule belongs on **Main**, where it sees the real
+    committed state.
+
+## What a preview assumes about your trigger
+
+A [preview or AI trial](reference-previews.md) runs the real triggers, which raises a
+question a real activation never has to answer: what happens when a reaction *would*
+stop and ask a player who is not the one previewing? A what-if run cannot prompt
+them, so it has to assume something — and **Speculation Policy** is where the
+trigger's author says what.
+
+| Value | What a what-if run assumes |
+|---|---|
+| **Assume Taken** (default) | The reactor spends the reaction: the attack of opportunity connects, the trap fires. The worst case, and the conservative reading for AI threat scoring — an enemy weighing a move sees the danger rather than wishing it away. |
+| **Assume Declined** | The reactor lets it pass — an optimistic preview. |
+| **Evaluator Scored** | Present in the dropdown, and currently resolves exactly as **Assume Taken**. |
+
+This is consulted **only** inside a speculative run, and only when the reaction would
+suspend for a choice belonging to another controller. A live reaction always waits for
+the real answer; nothing here changes what actually happens in play.
+
 ## Declaration windows
 
 An interrupt reshapes a *number*. Some responses have to happen before the effect and
@@ -212,11 +271,15 @@ class UPAbWindow_Declaration : public UPAbAbilityModule   // DisplayName "Window
 !!! warning "Know the boundary: automatic interrupts vs. a player's choice"
     A plain windowed stat change (the direct **Apply Stat Change** from the
     [events model](../../concepts/events-and-reactions.md#reaction-windows)) offers
-    **automatic interrupts only** — a rule may reshape or veto the number, but it cannot
-    stop to ask a human. If a *player* must choose before the hit lands, the source has
-    to be an ability whose program opens a **declaration window**. A reshape-the-number
-    interrupt cannot prompt a person; a declaration window can, because it stays open
-    (committing nothing) until the response resolves.
+    **automatic interrupts only** in its main phase — a rule may reshape or veto the
+    number, but a Main-phase interrupt cannot stop to ask a human. If a *player* must
+    choose before the hit lands, there are exactly two doors: the source is an ability
+    whose program opens a **declaration window**, or the responder listens on
+    [the intent phase](#the-intent-phase). Both work for the same reason — each stays
+    open, committing nothing, until the response resolves. Reach for a declaration
+    window when the *caster* wants to announce a specific moment ("I am casting Mind
+    Bomb"), and for the intent phase when the *responder* wants to answer any change
+    of a given kind before it is even proposed.
 
 ## The window payload
 

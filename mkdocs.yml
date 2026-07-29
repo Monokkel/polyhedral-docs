@@ -84,12 +84,19 @@ plugins:
           - concepts/abilities-and-resolution.md
         Plugins:
           - plugins/index.md
-          - plugins/taggeddata/index.md
-          - plugins/taggeddata/guides.md
-          - plugins/taggeddata/reference.md
+          - plugins/polyhedralcore/index.md
           - plugins/commandsystem/index.md
           - plugins/commandsystem/guides.md
           - plugins/commandsystem/reference.md
+          - plugins/queueframework/index.md
+          - plugins/queueframework/reference.md
+          - plugins/tagevents/index.md
+          - plugins/tagevents/reference.md
+          - plugins/noisebasedrandomseed/index.md
+          - plugins/noisebasedrandomseed/reference.md
+          - plugins/taggeddata/index.md
+          - plugins/taggeddata/guides.md
+          - plugins/taggeddata/reference.md
           - plugins/evaluators/index.md
           - plugins/evaluators/guides.md
           - plugins/evaluators/reference.md
@@ -102,19 +109,21 @@ plugins:
           - plugins/eventsystem/index.md
           - plugins/eventsystem/guides.md
           - plugins/eventsystem/reference.md
-          - plugins/tagevents/index.md
-          - plugins/tagevents/reference.md
-          - plugins/queueframework/index.md
-          - plugins/queueframework/reference.md
           - plugins/gridgraph/index.md
           - plugins/gridgraph/guides.md
           - plugins/gridgraph/reference-graph.md
           - plugins/gridgraph/reference-generation.md
           - plugins/gridgraph/reference-movement.md
           - plugins/gridgraph/reference-visualization.md
+          - plugins/gridcommands/index.md
+          - plugins/gridcommands/guides.md
+          - plugins/gridcommands/reference.md
           - plugins/gridentity/index.md
           - plugins/gridentity/guides.md
           - plugins/gridentity/reference.md
+          - plugins/gridentity/reference-facing.md
+          - plugins/gridentity/reference-footprints.md
+          - plugins/gridentity/reference-windows.md
           - plugins/tokensystem/index.md
           - plugins/tokensystem/guides.md
           - plugins/tokensystem/reference.md
@@ -127,14 +136,14 @@ plugins:
           - plugins/abilitysystem/reference-targeting.md
           - plugins/abilitysystem/reference-triggers.md
           - plugins/abilitysystem/reference-previews.md
+          - plugins/abilitysystem/reference-ai.md
           - plugins/abilitysystem/reference-tooling.md
           - plugins/tagdebug/index.md
           - plugins/tagdebug/reference.md
-          - plugins/noisebasedrandomseed/index.md
-          - plugins/noisebasedrandomseed/reference.md
           - plugins/polyhedraltooltips/index.md
           - plugins/polyhedraltooltips/guides.md
           - plugins/polyhedraltooltips/reference.md
+          - plugins/polyhedraltestkit/index.md
         Community:
           - community/index.md
 
@@ -159,14 +168,25 @@ nav:
       - Abilities & Resolution: concepts/abilities-and-resolution.md
   - Plugins:
       - plugins/index.md
+      - Polyhedral Core:
+          - plugins/polyhedralcore/index.md
+          - CommandSystem:
+              - plugins/commandsystem/index.md
+              - Guides: plugins/commandsystem/guides.md
+              - API Reference: plugins/commandsystem/reference.md
+          - QueueFramework:
+              - plugins/queueframework/index.md
+              - API Reference: plugins/queueframework/reference.md
+          - TagEvents:
+              - plugins/tagevents/index.md
+              - API Reference: plugins/tagevents/reference.md
+          - NoiseBasedRandomSeed:
+              - plugins/noisebasedrandomseed/index.md
+              - API Reference: plugins/noisebasedrandomseed/reference.md
       - TaggedData:
           - plugins/taggeddata/index.md
           - Guides: plugins/taggeddata/guides.md
           - API Reference: plugins/taggeddata/reference.md
-      - CommandSystem:
-          - plugins/commandsystem/index.md
-          - Guides: plugins/commandsystem/guides.md
-          - API Reference: plugins/commandsystem/reference.md
       - Evaluators:
           - plugins/evaluators/index.md
           - Guides: plugins/evaluators/guides.md
@@ -183,12 +203,6 @@ nav:
           - plugins/eventsystem/index.md
           - Guides: plugins/eventsystem/guides.md
           - API Reference: plugins/eventsystem/reference.md
-      - TagEvents:
-          - plugins/tagevents/index.md
-          - API Reference: plugins/tagevents/reference.md
-      - QueueFramework:
-          - plugins/queueframework/index.md
-          - API Reference: plugins/queueframework/reference.md
       - GridGraph:
           - plugins/gridgraph/index.md
           - Guides: plugins/gridgraph/guides.md
@@ -197,10 +211,18 @@ nav:
               - Generation & Patterns: plugins/gridgraph/reference-generation.md
               - Movement & Reachability: plugins/gridgraph/reference-movement.md
               - Visualization: plugins/gridgraph/reference-visualization.md
+      - GridCommands:
+          - plugins/gridcommands/index.md
+          - Guides: plugins/gridcommands/guides.md
+          - API Reference: plugins/gridcommands/reference.md
       - GridEntity:
           - plugins/gridentity/index.md
           - Guides: plugins/gridentity/guides.md
-          - API Reference: plugins/gridentity/reference.md
+          - API Reference:
+              - Placement & Occupancy: plugins/gridentity/reference.md
+              - Facing & Arcs: plugins/gridentity/reference-facing.md
+              - Footprints: plugins/gridentity/reference-footprints.md
+              - Movement & Structural Windows: plugins/gridentity/reference-windows.md
       - TokenSystem:
           - plugins/tokensystem/index.md
           - Guides: plugins/tokensystem/guides.md
@@ -216,16 +238,15 @@ nav:
               - Programs & Steps: plugins/abilitysystem/reference-programs.md
               - Targeting & Running: plugins/abilitysystem/reference-targeting.md
               - Triggers & Reactions: plugins/abilitysystem/reference-triggers.md
-              - Previews, AI & What-Ifs: plugins/abilitysystem/reference-previews.md
+              - Previews & What-Ifs: plugins/abilitysystem/reference-previews.md
+              - AI & Scoring: plugins/abilitysystem/reference-ai.md
               - Configuration & Tooling: plugins/abilitysystem/reference-tooling.md
       - TagDebug:
           - plugins/tagdebug/index.md
           - API Reference: plugins/tagdebug/reference.md
-      - NoiseBasedRandomSeed:
-          - plugins/noisebasedrandomseed/index.md
-          - API Reference: plugins/noisebasedrandomseed/reference.md
       - PolyhedralTooltips:
           - plugins/polyhedraltooltips/index.md
           - Guides: plugins/polyhedraltooltips/guides.md
           - API Reference: plugins/polyhedraltooltips/reference.md
+      - PolyhedralTestKit: plugins/polyhedraltestkit/index.md
   - Community Guides: community/index.md

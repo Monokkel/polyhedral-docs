@@ -51,8 +51,9 @@ one coherent action.
 
 - An ability's behavior is an **ability program** — an ordered list of **steps**,
   authored as data. Each step does one small thing: find targets, ask for a
-  choice, change game state, open a response window, show a marker. No event
-  graph runs the ability; the program *is* its logic.
+  choice, change game state, carve cells out of the board, open a response
+  window, show a marker. No event graph runs the ability; the program *is* its
+  logic.
 - The steps hand each other a running **target list**. Each step reads the list
   produced so far, contributes its own results, and declares how the two combine
   — replace it, merge into it, or leave it untouched (the default for a
@@ -69,6 +70,10 @@ one coherent action.
   state**, discarded afterward. That one mechanism powers target previews on
   hover, cheap availability checks, and enemy AI that tries each candidate move
   on a copy and scores the outcome.
+- **What makes a move "good" is authored as data too.** An entity carries an **AI
+  profile** — a bundle of *considerations*, each measuring one axis of a
+  candidate's outcome — and the framework combines them into a score. Enemy
+  behavior is a data row and a curve, not a scorer you have to write.
 - Whatever a real activation commits feeds **the automatic playout layer**,
   which turns the committed changes into the on-screen cues the
   [presentation layer](../tokensystem/index.md) documents.
@@ -160,6 +165,11 @@ needs.
 | `Data.Ability.Triggers` | The entity-carried triggers: which events the entity reacts to, in which phase (interrupt or reaction), and the program each one runs. |
 | `Data.Ability.Intent` | An optional presentation-intent tag that colours how the committed changes play out on screen. Omit it for the generic default. |
 
+A sixth entry, `Data.AI.Profile`, is not about ability behavior at all — it carries
+the judgment the enemy AI scores this entity's options with, and *any* entity can
+hold it: a unit, an ability, or a buff that appends to its wearer's. See
+[reference-ai.md](reference-ai.md).
+
 The full native-tag list and the project-settings knobs live in
 [reference-tooling.md](reference-tooling.md).
 
@@ -172,7 +182,8 @@ The full native-tag list and the project-settings knobs live in
 
 - **[Guides](guides.md)** — task recipes: author your first ability from a
   ready-made program, add a target-selection decision point, author a reactive
-  trigger, wire a custom targeting UI, and validate an ability.
+  trigger, wire a custom targeting UI, give an enemy a personality, and validate
+  an ability.
 - **[Programs & Steps](reference-programs.md)** — the
   ready-made program library (the 80% path), the step base class and
   building-block steps, sub-programs and iteration, and the context handed to
@@ -185,7 +196,10 @@ The full native-tag list and the project-settings knobs live in
   triggers: interrupts and reactions, listening channels, order-sign phase
   selection, and declaration windows.
 - **[Previews, AI & What-Ifs](reference-previews.md)** — hover previews, the
-  availability checks, the automatic playout layer, and the enemy-AI hooks.
+  availability checks, the automatic playout layer, and the enemy-AI loop.
+- **[Enemy AI: Considerations & Profiles](reference-ai.md)** — authoring enemy
+  judgment as data: considerations, consideration sets, AI profiles, disposition
+  axes, the score formula, and the console tuning loop.
 - **[Configuration, Tags & Tooling](reference-tooling.md)** — the full
   `Data.Ability.*` and native-tag reference, project settings, the ability
   linter, and the *Validate Ability* action.

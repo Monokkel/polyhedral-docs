@@ -19,8 +19,8 @@ Developers building rule-driven, turn-based games who want:
 - Strong **undo / redo / replay** without hand-rolling it per feature.
 - **Data-driven content** — units, items, abilities, and stats authored in data
   tables and assets, with Blueprint-heavy authoring and a C++ core.
-- Systems that stay **modular** — adopt tagged data on its own, or take the
-  whole entity-and-stats stack.
+- Systems that stay **modular** — take the grid on its own, or the whole
+  entity-and-stats-and-abilities stack.
 
 ## What you'll build
 
@@ -38,8 +38,8 @@ layer everything else builds on.
 
 ## The path
 
-1. **[Installation](installation.md)** — add and enable the four core
-   plugins, do the one-time schema setup, and confirm it compiles.
+1. **[Installation](installation.md)** — add and enable the plugins, do the
+   one-time schema setup, and confirm it compiles.
 2. **[Build Your First Board](first-board.md)** — the flagship tutorial: author
    entity templates, spawn them, store tagged data, make a command-driven stat
    change with a working Undo, and observe a change event.

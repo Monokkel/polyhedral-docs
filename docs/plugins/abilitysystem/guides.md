@@ -8,7 +8,8 @@ for the type-by-type surface see the reference pages —
 [Programs & Steps](reference-programs.md),
 [Targeting & Running Abilities](reference-targeting.md),
 [Triggers & Reactions](reference-triggers.md),
-[Previews, AI & What-Ifs](reference-previews.md), and
+[Previews, AI & What-Ifs](reference-previews.md),
+[Enemy AI: Considerations & Profiles](reference-ai.md), and
 [Configuration, Tags & Tooling](reference-tooling.md).
 
 ## Make your first ability
@@ -273,13 +274,63 @@ widget over the session's calls and resolution does not change. The session is
     a throwaway copy of the game state; see
     [hover previews](reference-previews.md#hover-previews).
 
+## Give an enemy a personality
+
+Teach the AI your game's judgment of a good move — without writing a scorer.
+Enemy judgment is authored as **considerations**: each one measures a single axis
+of a candidate action, and the framework combines them into one score. The whole
+recipe is data, and it takes about ten minutes.
+
+The worked example: a goblin that likes hurting the player, dislikes hurting its
+own side, and won't wade into danger — but is bolder when enraged.
+
+=== "Editor"
+    1. **Mint a disposition axis.** On the goblin's archetype row, add an ordinary
+       base stat `Stat.AI.Aggression` with the value `100`. Percent scale, 100 is
+       neutral — this is the knob a rage buff will later push to 150. The framework
+       ships no axes; every one is yours.
+    2. **Author a consideration set.** Create a data asset of the **Consideration
+       Set** class and add three entries to its **Considerations** list:
+        - *"Hurt the enemy"* — **Feature** = **Score Faction Aggregate** over
+          `Faction.Player`, summing the health stat's **Delta**; **Bucket** =
+          **Value**; **Weight** = `1.0`; **Disposition Axis** =
+          `Stat.AI.Aggression`.
+        - *"Don't hurt my own"* — the same calculation over `Faction.Enemy`, with a
+          **negative** weight. A negative weight is how you price a cost.
+        - *"Stay out of danger"* — **Feature** = **Normalize To Unit** wrapping
+          **Score Target Distance** (with **Invert** on), **Bucket** =
+          **Modulator**. A modulator is a 0–1 mask that can only ever make a
+          candidate look worse.
+    3. **Grant it.** Your game's entity row struct needs an AI-profile property
+       carrying the `Data.AI.Profile` tagged-data key — that is one line of C++,
+       declared once for the whole project (the exact declaration is in
+       [Attaching a profile to a row](reference-ai.md#attaching-a-profile-to-a-row)).
+       From then on it is a details-panel field: on the goblin's row, add one grant
+       and point its **Set** at the asset. Put it on the archetype *template* and
+       every goblin spawned from it inherits the judgment.
+    4. **Bind nothing.** The profile scorer is the default — the AI now uses it. An
+       enemy carrying no profile still behaves exactly as before.
+    5. **Watch it think.** In the console, `PAb.AI.ScoreBreakdown 1`, let the goblin
+       take a turn, then `PAb.AI.DumpLastBreakdown` to see each candidate's
+       per-consideration arithmetic.
+
+!!! warning "A child row that declares an empty profile clears the parent's"
+    Row inheritance replaces the profile key wholesale rather than merging grants.
+    A child row that declares the property and leaves it empty ends up with **no**
+    grants. Restate the parent's grants on the child, or leave the property off the
+    child entirely.
+
+The full model — the two buckets and why neither may pick its own operator, the
+score formula, the four shipped scoring calculations, the disposition rules, and
+the profile linter — is in
+[Enemy AI: Considerations & Profiles](reference-ai.md).
+
 ## Plug in a custom AI scorer
 
-Teach the enemy AI your game's judgment of a good move. The
-deliberate → telegraph → commit loop runs out of the box with a content-neutral
-default scorer (it rewards the magnitude of harm inflicted on entities other than
-the caster); *whose* harm is good is your game's value judgment, and you supply
-it by binding a scorer.
+Take over scoring completely in C++, when a profile of considerations is not the
+shape your game's judgment wants. Binding a scorer **overrides profiles entirely,
+for every entity** — so reach for it when your judgment needs code, and prefer
+[considerations](reference-ai.md) when it can be authored.
 
 This is a **C++ extension point** — there is no Blueprint path. The scorer carries
 live references to the game state and is not a dynamic delegate, so it cannot be
@@ -289,7 +340,8 @@ authored in Blueprint by construction.
 UPAbAiDeliberationSubsystem* Ai = UPAbAiDeliberationSubsystem::Get(World);
 
 // Bind your judgment. The scorer is a pure float over one candidate's context;
-// higher = better. Unbound, the framework's content-neutral default is used.
+// higher = better. An explicit binding always wins; leave it unbound and each
+// entity is scored by its own authored AI profile instead.
 Ai->SetCandidateScorer(FPAbCandidateScorer::CreateLambda(
     [](const FPAbScoreContext& Ctx) -> float
     {
@@ -297,6 +349,7 @@ Ai->SetCandidateScorer(FPAbCandidateScorer::CreateLambda(
         // Ctx.ResultantState — the throwaway copy's post-run state, for positional
         //                      judgment (adjacency, threat range) — valid ONLY during this call
         // Ctx.BaselineState  — the untouched live state, for a before/after comparison
+        // Ctx.Board          — the board (connectivity, occupants) as the trial left it
         float Score = 0.f;
         // e.g. reward damage dealt to the player faction, penalise friendly fire.
         return Score;
@@ -333,7 +386,8 @@ else
     roll you are about to get.
 
 The full what-if model and the rest of the AI surface are in
-[Previews, AI & What-Ifs](reference-previews.md).
+[Previews, AI & What-Ifs](reference-previews.md); the data-authored alternative
+this replaces is in [Enemy AI: Considerations & Profiles](reference-ai.md).
 
 ## Validate an ability
 

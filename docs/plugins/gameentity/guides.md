@@ -29,7 +29,7 @@ hold a pointer to the entity itself. Creation is a command, so it undoes.
     1. Call **Create Entity From Row**, passing a data-table row handle. It returns
        an **entity reference**.
     2. Read data back with **Get Stat** (for example `Stat.Health`), **Has Tag**
-       (for example `Unit.Enemy`), and the entity **Get Tagged Data** node, all
+       (for example `Unit.Enemy`), and **Get Entity Tagged Data (Typed)**, all
        taking that reference.
     3. Before reading a stored reference later, branch on **Entity Exists** — an
        entity that was destroyed or undone away simply stops resolving.
@@ -111,15 +111,20 @@ data for you.
 
 ## Read and write tagged data on an entity
 
-On an entity, tagged data is authoritative game state: writes are command-driven
-(so undoable and saved), and reads fall back to the template when the entity has
-no override of its own.
+An entity is the one place tagged data is stored. Writes are command-driven (so
+undoable, saved, and replayed), and reads fall back to the template when the
+entity has no override of its own.
 
 === "Blueprint"
-    1. Use the entity **Set Tagged Data** node against the entity reference and a
-       `Data.*` tag — the write shows up in Undo.
-    2. Read with the entity **Get Tagged Data** node: it returns the entity's own
-       value, or the template's value when the entity hasn't overridden it.
+    1. Drop a **Set Entity Tagged Data (Typed)** node — palette category
+       **GameEntity | TaggedData** — and wire your entity reference to it.
+    2. Pick a `Data.*` **Tag**. If your schema maps it, the **Data** pin becomes
+       that concrete struct type; wire a **Make Struct** into it. The write shows
+       up in Undo, and **Success** reports whether it was accepted.
+    3. Read with **Get Entity Tagged Data (Typed)**: it outputs the typed struct
+       plus a **Found** bool, returning the entity's own value or the template's
+       when the entity hasn't overridden it. **Get Entity Tagged Data (Typed,
+       Exec)** is the same read with **Success** / **Failure** exec pins.
 
 === "C++"
     ```cpp
@@ -131,13 +136,27 @@ no override of its own.
     FInstancedStruct Raw = State->GetTaggedData(Card, PositionTag);
     ```
 
+!!! warning "The Data pin must be wired"
+    Once a **Tag** resolves to a concrete schema type, the **Data** pin cannot
+    take a typed-in literal — leaving it unwired fails the Blueprint compile.
+    Feed it a **Make Struct**.
+
 !!! note "Setting data also marks the tag"
     Writing tagged data marks the entity with that key tag, so a plain tag query
-    answers "does this entity carry `Data.*`?". The typed Blueprint get/set nodes
-    and the `Data.*` schema come from
-    [TaggedData](../taggeddata/index.md); on entities they route through the
-    game-state subsystem. Full API in the
-    [Entities reference](reference-entities.md).
+    answers "does this entity carry `Data.*`?". That marker is what makes the
+    value readable, so the raw **Remove Tag** call refuses to strip it — to drop
+    a key, use **Remove Tagged Data** (clear my override, fall back to the
+    template) or **Shadow Template Tagged Data** (absent for me, even if the
+    template provides a value). The `Data.*` schema behind the typed pins comes
+    from [TaggedData](../taggeddata/index.md); the full API, the write gate and
+    the marker-tag rules are in the
+    [Entities reference](reference-entities.md#tagged-data).
+
+!!! tip "When you need to know a write landed"
+    The subsystem's `SetTaggedData` returns `void`, so a write the schema gate
+    refuses is logged but invisible to the caller. Use **Try Set Tagged Data**
+    (on `UPGeGameStateLibrary`) when you want the `bool` — it's the same call the
+    typed node's **Success** pin comes from.
 
 ## Change a base stat with a working Undo
 

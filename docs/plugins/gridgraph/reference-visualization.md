@@ -113,6 +113,15 @@ area from a unit's reachability once on selection; then, as the cursor moves, ca
     Driver->ClearPath();
     ```
 
+!!! warning "A shown set does not follow a changed board"
+    The driver draws the cells you handed it and nothing else — it does not watch
+    the board. If the board's structure changes while an overlay is up (a
+    [runtime dig](../gridcommands/index.md), a collapsed bridge, an undo of
+    either), the area you showed can contain cells that no longer exist. Recompute
+    and re-show the channel when that happens: subscribe to the
+    [structural-change notification](reference-graph.md#the-structural-change-notification)
+    from C++, or drive the refresh from whatever gameplay code performed the edit.
+
 The **target** channel is the counterpart the ability system drives to telegraph what
 a spell would hit; that wiring is documented in [Painting targets on the grid](../abilitysystem/reference-targeting.md#painting-targets-on-the-grid). Because `ShowTargets`
 takes the same plain cell set as `ShowArea`, you can also drive it directly for any
@@ -337,6 +346,14 @@ Separate from the presenter-driven overlays above is a simpler family that rende
 *every cell of a static board* — useful for a skill tree, an interactive zone map, or
 just seeing the whole grid. These rebuild automatically whenever the grid is
 regenerated, rather than being driven by a changing cell set.
+
+They also cover a board that changes during play: the grid component forwards a
+runtime [structural change](reference-graph.md#the-structural-change-notification)
+into the same **On Grid Rebuilt** event, so a whole-grid visualizer picks up a dug
+cell — and the undo of one — with no extra wiring. It rebuilds wholesale each
+time; if that is too coarse for a large board, write a C++ presenter that
+subscribes to the structural change directly and reconciles only what the delta
+names.
 
 `UGridVisualizerComponent` is the base. Attach it to a grid actor; it auto-finds the
 grid component and rebuilds itself when the grid changes.

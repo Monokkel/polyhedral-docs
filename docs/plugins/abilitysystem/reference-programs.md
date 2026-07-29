@@ -115,6 +115,15 @@ A step never returns its output — it writes results to the context, so synchro
 and waiting steps produce their output identically. See
 [Writing a custom step](#writing-a-custom-step) for the full picture.
 
+!!! note "Subclassing a shipped effect in C++"
+    The shipped stat-change, tag-change, by-magnitude and move effects override
+    `ExecuteAsync` rather than `NativeExecute`, because each can now pause when a
+    change it applies is held open by a reaction's prompt. If you derive from one in
+    C++, override `ExecuteAsync_Implementation` and call the base — a
+    `NativeExecute` override on those classes is never reached. Deriving from
+    `UPAbAbilityModule` directly is unaffected: `NativeExecute` remains the plain
+    synchronous override point.
+
 ### Combining results into the target list
 
 Steps hand each other a running **target list**. Each step receives the list
@@ -154,6 +163,7 @@ When you assemble a program by hand, these are the shipped steps you reach for.
 | `UPAbEffect_TagChange` | state-changing | a tag + add-or-remove |
 | `UPAbEffect_Summon` | state-changing | a template id + an optional parent slot |
 | `UPAbEffect_MoveAlongPath` | state-changing | nothing — moves the caster to the chosen cell |
+| `UPAbEffect_RemoveCells` | state-changing | nothing — removes the cells in the target list |
 | `UPAbDisplay_Marker` | display | an optional marker tag |
 
 The state-changing steps route their mutation through the entity system's
@@ -163,6 +173,24 @@ useful precisely because they read from context: `UPAbTargeter_CallerLocation`
 seeds the caster; `UPAbEffect_MoveAlongPath` moves the caster to the destination
 cell the target list supplies (resolving a legal path under the caster's own
 movement profile — no path means no move, never a teleport).
+
+**Abilities can change the board.** `UPAbEffect_RemoveCells` (**Effect: Remove
+Cells**) removes every cell in the incoming target list — a collapse, a dig, a
+disintegrated bridge. It is **atomic**: a response window may veto the whole edit,
+and on commit every removal folds into the activation's single undo unit. Occupants
+of a removed cell are left dangling and each gets a displacement event, so a trap
+bound to "I was displaced" fires as a real reaction rather than being missed. Its
+results are one cell target per removed cell **and only when the edit committed**,
+so a following step ("spawn rubble in the holes") can tell a committed dig from a
+vetoed one. It behaves identically in a real activation and in a what-if run — an AI
+weighing a dig simulates the veto *and* the displacement reactions honestly.
+
+!!! note "Terrain removal reaches the grid through one sanctioned door"
+    The step routes its edit through the entity system's structural-change helper —
+    the same one authoring tools use — never a direct grid mutation. That is what
+    makes it undoable, previewable, and safe inside an AI trial. A custom step that
+    needs to change the board must go the same way; a raw grid mutator is one of the
+    calls the [linter](reference-tooling.md#the-ability-linter) flags.
 
 The two most-configured steps:
 
@@ -184,12 +212,22 @@ class UPAbTargeter_GridCircle : public UPAbAbilityModule
 class UPAbEffect_StatChangeByMagnitude : public UPAbAbilityModule
 {
     FGameplayTag StatTag;                                // which stat to change on each target
-    TInstancedStruct<FEvalMagnitudeCalc> Magnitude;      // the amount, evaluated once from the caster's context
+    TInstancedStruct<FEvalMagnitudeCalc> Magnitude;      // the amount, evaluated from the caster's context
     float Scale = -1.f;                                  // -1 = damage, +1 = heal / buff
     bool  bBatchRecompute = false;                       // wrap a bulk (area) application in one recompute
     FGameplayTag ElementTag;                             // optional element, carried for resistance / cue selection
+    bool  bEvaluatePerTarget = false;                    // evaluate the magnitude once PER TARGET (see below)
 };
 ```
+
+!!! tip "Per-target magnitudes"
+    By default the magnitude is evaluated **once** and the same number applied to
+    every target — the right shape for a flat area blast. Turn on
+    **Evaluate Per Target** and it is evaluated again for each target, with that
+    target seeded into the formula's context as the secondary source, so the
+    calculation can read the *victim*: a backstab bonus that checks facing, an
+    execute that scales below half health, per-target falloff. Off is the cheaper
+    path and stays numerically identical to the single evaluation.
 
 `Source` is a **target source** — a small pluggable resolver ("the caster," "the
 previous step's results," "cells reachable from here"); the family is documented in
@@ -369,6 +407,7 @@ void SetResult(const TArray<FPAbTarget>& Targets);  // replace this step's resul
 void RequestEntityRemoval(const FPGeEntityRef& Entity);  // remove an entity from play (two-phase — see note)
 void EnqueueBespokeAction(UPTkProjectedAction* Action);  // an entity-less visual (a projectile arc, a banner)
 void CompleteABM();               // finish this step — an async / waiting step calls this itself
+                                  // (the Blueprint node is called "Complete Ability Module")
 
 // — Wait for a decision (async steps only) —
 void RequestDecision(const FPAbDecisionRequest& Request);  // suspend at a decision point
@@ -380,11 +419,15 @@ UTagEventPayloadObject* GetWindowPayload();  // the payload a window-triggered s
 bool GetLookbackResult(const FGuid& StepHandle, TArray<FPAbTarget>& Out);
 bool GetLookbackOutgoing(const FGuid& StepHandle, TArray<FPAbTarget>& Out);
 
-// — Repeat-stable rolls —
-int32 NextDrawIndex(const FGuid& DrawSite);   // pass your OWN step's Handle
-float GetKeyedRandomFloat(const FGuid& Site, int32 Index, const FPGeEntityRef& Target);
-int32 GetKeyedRandomIntInRange(const FGuid& Site, int32 Index, int32 Min, int32 Max, const FPGeEntityRef& Target);
-bool  GetKeyedRandomBool(const FGuid& Site, int32 Index, float TrueChance, const FPGeEntityRef& Target);
+// — Repeat-stable rolls — (leave DrawSite unset; it defaults to THIS step)
+int32 NextDrawIndex(const FGuid& DrawSite = FGuid());
+float GetKeyedRandomFloat(int32 DrawIndex, const FPGeEntityRef& ActedOnTarget,
+                          const FGuid& DrawSite = FGuid());
+int32 GetKeyedRandomIntInRange(int32 DrawIndex, int32 Min, int32 Max,
+                               const FPGeEntityRef& ActedOnTarget, const FGuid& DrawSite = FGuid());
+bool  GetKeyedRandomBool(int32 DrawIndex, float TrueChance,
+                         const FPGeEntityRef& ActedOnTarget, const FGuid& DrawSite = FGuid());
+const FGuid& GetCurrentDrawSite();   // the step the framework is currently keying draws to
 ```
 
 A note on each family:
@@ -417,8 +460,21 @@ A note on each family:
 Randomness in a step is **keyed**, not sequential: a roll is a pure function of the
 game state, the step making it, and the target it concerns. That is what makes a
 replay reproduce every roll exactly, stops a re-cast from fishing for a better one,
-and lets an AI trial sample its *own* separate stream. Draw an index for your step,
-then read a keyed value with your step's own handle:
+and lets an AI trial sample its *own* separate stream.
+
+The step making the roll is called its **draw site**, and **you do not supply it**:
+every keyed-random call takes an optional `DrawSite` that defaults to the step the
+framework is currently running — which is yours. Draw an index, then read as many
+keyed values from it as you need.
+
+!!! warning "`DrawSite` moved to the end and became advanced"
+    On the Blueprint nodes, **Draw Site** is now the *last* pin and sits under
+    **Advanced** — collapsed by default, and correct when left empty. Fill it in only
+    for the deliberate cross-site case, where one step must reproduce *another*
+    named step's draw. If you have older graphs that pass a step handle as the
+    **first** pin, they are wired against the previous pin order and need re-wiring;
+    the parameter order changed on **Next Draw Index**, **Get Keyed Random Float**,
+    **Get Keyed Random Int In Range**, and **Get Keyed Random Bool**.
 
 ```cpp
 // A custom state-changing step: a coin-flip strike. Reads the target list, rolls a
@@ -433,8 +489,8 @@ void UMyCoinFlipStrike::NativeExecute(UPAbExecContext* Ctx)
             continue;
         }
 
-        const int32 Draw = Ctx->NextDrawIndex(Handle);    // this step's own stable handle
-        if (Ctx->GetKeyedRandomBool(Handle, Draw, 0.5f, T.Entity))
+        const int32 Draw = Ctx->NextDrawIndex();          // keyed to THIS step automatically
+        if (Ctx->GetKeyedRandomBool(Draw, 0.5f, T.Entity))
         {
             // A command-routed, windowed change — reactable, and undone for free.
             State->ApplyStatChange(T.Entity, DamageStat, -Amount, Ctx->GetCaller());
@@ -455,9 +511,12 @@ void UMyCoinFlipStrike::NativeExecute(UPAbExecContext* Ctx)
       immediately, so targeting and effect filters exclude it at once, but the
       structural removal is deferred to a stable settling point. The entity is
       *logically* gone the instant you call it, not structurally gone.
-    - Running a single step **standalone** (outside a full program) supports
-      **synchronous steps only** — decision-point and window steps run only inside a
-      full ability program.
+    - Running a single step **standalone** (outside a full program) does not support
+      a step that asks for a choice — decision-point and window steps run only inside
+      a full ability program. A standalone run otherwise completes immediately, with
+      one exception: if a change it applies is held open by a reaction's unanswered
+      prompt, the run stays in flight and finishes when that prompt is answered — and
+      the run plus its whole cascade is still one undo unit.
 
 ---
 
@@ -465,5 +524,6 @@ Related: [Abilities and Step-by-Step Resolution](../../concepts/abilities-and-re
 [Targeting & Running Abilities](reference-targeting.md) ·
 [Triggers & Reactions](reference-triggers.md) ·
 [Previews, AI & What-Ifs](reference-previews.md) ·
+[Enemy AI: Considerations & Profiles](reference-ai.md) ·
 [Configuration, Tags & Tooling](reference-tooling.md) ·
 [Guides](guides.md) · [Ability System overview](index.md)

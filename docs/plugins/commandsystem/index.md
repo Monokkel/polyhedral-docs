@@ -13,6 +13,12 @@ door, the rationale for the authoring rules — lives on the
 owns the mechanics: the exact functions, the transaction API, the custom-command
 surface, and the correctness harness.
 
+!!! note "Ships inside Polyhedral Core"
+    CommandSystem is a **module** of the [PolyhedralCore](../polyhedralcore/index.md)
+    plugin, alongside QueueFramework, TagEvents, and NoiseBasedRandomSeed. You enable
+    `PolyhedralCore` in your `.uplugin` or `.uproject`; from C++ you depend on
+    `CommandSystem` by name in your `.Build.cs`.
+
 !!! note "Read the concept first"
     If you haven't yet, start with
     [Commands & Undo](../../concepts/commands-and-undo.md) in Core Concepts. It
@@ -77,5 +83,5 @@ rule.
   rationale for the four rules.
 - **[First board tutorial](../../getting-started/first-board.md)** — makes a stat
   change through the stack and wires a working Undo button, hands-on.
-- **[TaggedData](../taggeddata/index.md)** — the "two homes" split (standalone
-  storage vs. command-driven entity storage) that this guarantee sits behind.
+- **[TaggedData](../taggeddata/index.md)** — the schema and typed pins behind the
+  tagged data that entities carry, every write to which is one of these commands.
