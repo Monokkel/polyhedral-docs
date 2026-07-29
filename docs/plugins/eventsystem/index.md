@@ -47,6 +47,16 @@ documents those entry points (see the [reference](reference.md#windowed-changes-
 and the [how-to guide](guides.md#react-to-a-change-with-a-reaction-window)); the
 resolved stat and tag state they change is documented with GameEntity.
 
+## A subscription is keyed three ways
+
+Every subscription, broadcast, and query is addressed by **event tag**, **channel**,
+and **phase**. The first two are the obvious ones — what happened and where. The
+third decides *which broadcast* you hear: the `Main` window (the default
+everywhere, and everything a Blueprint game will ever see) or the earlier `Intent`
+declaration that fires before a proposal exists. Phase is orthogonal to a
+listener's *order*, which decides whether it runs before or after the commit within
+one broadcast. Details in [Event phases](reference.md#event-phases).
+
 ## Two kinds of listener
 
 The single most important distinction in this plugin is *which kind of listener
@@ -82,6 +92,8 @@ you are creating*, because the two can do different things:
 | `UPEsEventSubsystem` | The event subsystem — a GameInstance subsystem. Subscribe, query, broadcast bookkeeping, the loop-cap and depth hooks. |
 | **Broadcast Event** node / `BeginBroadcastEvent` + `FinishBroadcastEvent` | Send an event on a channel with a payload. Blueprint uses the node; C++ uses the two-step Begin/Finish pair. |
 | **Subscribe to Event** node / `UPEsEventSubsystem::Subscribe` | Start listening to an event on a channel at a chosen order. |
+| `EPEsEventPhase` | Which broadcast a subscription hears: the `Main` window (the default) or the earlier `Intent` declaration. **C++-only** — no Blueprint node exposes it. |
+| `Channel.Global` | The reserved channel that mirrors every broadcast to its subscribers. Subscribing hears everything; broadcasting *to* it does not fan out. |
 | `EPEsBroadcastTiming` | Whether the broadcast resolves depth-first now (`Immediate`) or is queued to run later (`Deferred`). |
 | `IPEsEventSubscriberInterface` | Implement it to give a listener a stable id that survives save and replay. |
 | The payload (`UPEsEventPayload`) | Carries the event's facts: a typed struct, a bag of tags, and a map of named numbers rules can read and reshape. |
@@ -91,8 +103,9 @@ you are creating*, because the two can do different things:
 ## Where to go next
 
 - **[Guides](guides.md)** — task recipes: broadcasting an event, observing one,
-  reacting to a change with a reaction window (the worked armor example), ordering
-  reactions with presets, and breaking a runaway loop.
+  hearing every event on the global channel, reacting to a change with a reaction
+  window (the worked armor example), ordering reactions with presets, and breaking
+  a runaway loop.
 - **[API Reference](reference.md)** — the full public surface, grouped by area:
   subscribing, broadcasting, ordering and channels, the payload, interrupts, the
   loop and depth safety hooks, and the windowed-change entry points.

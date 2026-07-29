@@ -57,6 +57,11 @@ entry** under the `Data.Turn.Schedule` key. Writing that entry joins the order;
 removing it leaves. There is no membership list to maintain, and death needs no
 call at all — destroying the entity takes its entry with it.
 
+"Carries the key" includes carrying it through a **template**. Author the schedule
+entry on your unit template and every unit created from it is a participant the
+moment it spawns, with no join call — the common case for a roster of same-side
+units.
+
 === "Blueprint"
     1. Get the scheduler subsystem (**Get** on `UPTsSchedulerSubsystem`, world
        context self).
@@ -84,6 +89,12 @@ call at all — destroying the entity takes its entry with it.
     other authoritative change. A unit that entered the order on spawn leaves it
     again cleanly when you undo the spawn — see
     [Commands & Undo](../../concepts/commands-and-undo.md).
+
+!!! tip "Leaving works even when the entry came from the template"
+    `LeaveTurnOrder` does not try to edit the shared template. It hides the
+    schedule key for *that one entity*, so a template-provided participant can step
+    out ("banished this round") while its siblings stay in — undoably, and without
+    touching anyone else. `JoinTurnOrder` puts it back.
 
 ## Show the initiative strip
 
@@ -171,8 +182,9 @@ struct FMyInitiativePolicy : public FPTsSchedulerPolicy
         TArray<FPTsParticipant> Ranked = View.Participants;
         Ranked.StableSort([](const FPTsParticipant& A, const FPTsParticipant& B)
         {
-            return A.Entry->Get<FInitiativeEntry>().Initiative
-                 > B.Entry->Get<FInitiativeEntry>().Initiative;
+            // Entry is held BY VALUE — read it directly, no pointer to deref.
+            return A.Entry.Get<FInitiativeEntry>().Initiative
+                 > B.Entry.Get<FInitiativeEntry>().Initiative;
         });
 
         for (int32 i = 0; i < Ranked.Num() && OutOrder.Num() < Depth; ++i)
@@ -211,6 +223,14 @@ UPTsSchedulerSubsystem::Get(this)->SetActivePolicy(FInstancedStruct::Make(FMyIni
     library for declared-facet queries. Never read a wall clock, a global, or a
     derived cache; same view in, same answer out. That is what lets the projected
     order be recomputed on demand and stay correct in a preview or after an undo.
+
+!!! warning "The entry is a value, not a pointer"
+    `FPTsParticipant::Entry` is an `FInstancedStruct` held **by value**. Read it as
+    `Participant.Entry.Get<FMyEntry>()` — there is no pointer to dereference and no
+    null to guard. It is resolved the way every tagged-data read is, so a
+    participant whose entry lives on its **template** arrives with a real entry
+    rather than nothing. Use `Entry.IsValid()` if your policy must reject a
+    participant with no usable entry.
 
 !!! tip "Declare what dirties the projection"
     If your ordering depends on a facet *other* than the schedule entries and turn

@@ -96,6 +96,39 @@ anything. This is the default subscribe path.
     An entity's own channel is an FName you fetch from
     `UPGeGameStateSubsystem::GetEntityWindowChannel(Entity)`.
 
+## Hear every event on one channel
+
+A combat log, an analytics tap, or a debug overlay does not want to enumerate every
+channel in the game. Subscribe to the reserved **`Channel.Global`** channel instead
+and every broadcast, on every channel, is additionally delivered to you.
+
+=== "Blueprint"
+    1. Drop **Subscribe to Event** as usual, but set **Channel** to
+       `Channel.Global`.
+    2. Set **Event Tag** to the event you want to hear everywhere. Repeat the node
+       for each tag your log cares about — the mirror widens the *channel*, not the
+       event tag.
+    3. Read the payload in the generated handler. Its **Channel** field tells you
+       where the event actually went out, which is usually what a log line wants.
+
+=== "C++"
+    ```cpp
+    // Hear Event.Trap.Sprung wherever it is raised, on any channel.
+    UPEsEventSubsystem::Get(this)->Subscribe(
+        this, TrapSprungTag, UPEsEventSubsystem::GetGlobalTopicName());
+    ```
+
+!!! warning "Broadcasting *to* the global channel does not reach everyone"
+    The mirror only works in the receive direction. A broadcast **addressed to**
+    `Channel.Global` reaches the subscribers of `Channel.Global` and nobody else —
+    it is not a send-to-everyone. Announce your event on the channel that describes
+    it and let listeners opt in, through the mirror if they want breadth.
+
+    Two more things worth knowing: a listener subscribed to both a specific channel
+    and the global channel is still called **once** per broadcast, not twice; and
+    the mirror respects phase, so a global subscription hears the phase it
+    registered for and no other.
+
 ## React to a change with a reaction window
 
 This is the recipe for a rule that *changes* an outcome — armor that halves an
@@ -112,8 +145,22 @@ A windowed change has two phases:
 - **Reactions** run *after* the change commits and see the new, real state. They
   answer with changes of their own — "when damaged, retaliate."
 
-Order decides the phase: a **negative** order is the interrupt phase, **zero and
-positive** the reaction phase.
+Order decides which of the two: a **negative** order is the interrupt phase,
+**zero and positive** the reaction phase.
+
+!!! note "There is an earlier phase, and it is C++-only"
+    A subscription also carries an **event phase** — `Main` or `Intent` — and that
+    is a different question from order. Order asks *when within one broadcast* you
+    run; the event phase asks *which broadcast you hear at all*. Everything on this
+    page is the `Main` phase, the default everywhere.
+
+    The `Intent` phase is an earlier broadcast, raised before a proposal even
+    exists, for a rule that must weigh in on something being *about* to be
+    attempted — and it is the one place a listener may suspend and wait for an
+    answer before the change is shaped. **Blueprint cannot reach it from either
+    end**: neither the Subscribe to Event node nor the Broadcast Event node has a
+    Phase pin. Plan on C++ if you need it — see
+    [Event phases](reference.md#event-phases).
 
 ### The cause: open the window
 
@@ -225,10 +272,14 @@ that thorns aura — encode it with distinct order values.
     &rarr; Plugins &rarr; Event System**.
 
     1. On the **Subscribe to Event** node, set **Order Preset** to a named preset —
-       e.g. an early-interrupt preset for armor, a late-reaction preset for
-       cleanup. With a literal preset chosen, the raw Order pin hides itself.
+       e.g. an early-reaction preset for retaliation, a late one for cleanup. With
+       a literal preset chosen, the raw Order pin hides itself.
     2. To tune the actual numbers your presets resolve to, edit the **Order
        Presets** map in project settings — no Blueprint changes needed.
+
+    Author every preset as **zero or above**. A negative preset cannot make a
+    Blueprint listener an interrupt (see the warning below); it is silently
+    rewritten to `0`.
 
 === "C++"
     ```cpp
@@ -239,6 +290,18 @@ that thorns aura — encode it with distinct order values.
     const int32 Order = UPEsEventLibrary::ResolveOrderPreset(ArmorPreset, /*OrderOverride=*/-10);
     UPEsEventSubsystem::Get(this)->Subscribe(Self, EventTag, Channel, Order, /*bTransient=*/false);
     ```
+
+!!! warning "An order preset can never buy interrupt capability"
+    Writing a negative number into an order preset does not turn the listeners that
+    use it into interrupts. Presets are read only by the ad-hoc subscribe path,
+    which creates **observers**, and an observer is locked out of the pre-commit
+    phase by construction — so a negative preset value is rewritten to `0` with a
+    warning and never reaches the subscription store. The listener still runs; it
+    runs where every observer runs, after every rule.
+
+    Keep all shipped presets at zero or above, and read them as a way to sequence
+    *reactions* by name. A listener that must run pre-commit has to be an
+    authoritative one, and that path ignores the preset map entirely.
 
 !!! tip "Ties are stable, but don't lean on them"
     When two rules listeners share the same order, the tie breaks by **entity age —

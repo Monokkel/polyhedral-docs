@@ -76,6 +76,8 @@ An observer only *reflects* the turn. A start-of-turn effect that *changes* stat
 
 An entity is in the turn order for one reason: it carries a **schedule entry** — a small struct, under the `Data.Turn.Schedule` key, whose shape the active policy defines. Writing that entry joins the turn order; removing it leaves. There is no membership list to maintain and nothing to keep in sync with the board: when a unit dies, its entry dies with it, and it drops out of the order automatically.
 
+"Carries the entry" includes carrying it through a **template**. Author the schedule entry on a unit template and every unit created from it is a participant the moment it spawns, with no join call at all — the natural way to enrol a roster. Leaving still works for those units: it hides the key for that one entity, an undoable per-instance exit that never touches the shared template or its siblings.
+
 === "Blueprint"
     On spawn, **Make** the policy's entry struct (for the side-based preset, an entry carrying `Side = Side.Player`), wrap it with **Make Instanced Struct**, and call **Join Turn Order** on the scheduler subsystem. To pull a unit out without killing it, call **Leave Turn Order**. On death, do nothing — destroying the entity removes its entry for you.
 
@@ -97,9 +99,11 @@ Joining and leaving are command-routed like every other write, so a unit that en
 
 Who acts next is not baked into the framework — it is a **scheduler policy**: a pure rule that reads the participants' schedule entries plus the current turn state and answers the who-acts-next questions — the next actors, the turn state the following advance should write, and which participants belong to a given side. "Pure" means it reads only that state — no wall clock, no hidden variables — so the same board always schedules the same way, live or replayed.
 
-The shipped preset is **side-based** (sometimes called I-go-you-go): each side takes its whole turn, then play passes to the next side, and one full cycle of the sides is a round. You configure it with an ordered list of side tags — `[Side.Player, Side.Enemy]` for a two-sided skirmish, more for a free-for-all — and that is the entire policy.
+Exactly **one** policy ships: **side-based** (sometimes called I-go-you-go). Each side takes its whole turn, then play passes to the next side, and one full cycle of the sides is a round. You configure it with an ordered list of side tags — `[Side.Player, Side.Enemy]` for a two-sided skirmish, more for a free-for-all — and that is the entire policy. Within a side it orders units by entity age, not by any speed stat.
 
-The same seam expresses far more: an initiative list, a time-unit or charge-gauge timeline where the fastest unit acts next, or anything you author. The side-based preset is not privileged — it plugs into the exact extension point your own policy would, from the same base type.
+The same seam expresses far more: an initiative list, a time-unit or charge-gauge timeline where the fastest unit acts next, or anything else. Those are policies you **write**, not presets you select — and the side-based one is not privileged, so yours plugs into the exact extension point it uses, from the same base type, with no capability it has and yours doesn't.
+
+A policy reads its participants' schedule entries by value, resolved the way any other entity data read is — so a participant whose entry lives on its template looks exactly like one carrying its own.
 
 And because the active policy is itself stored on the turn tracker as ordinary entity data, it saves, undoes, and rides into previews with the match. You can even swap policies mid-match as an undoable change — switch from side-based to a timeline when a "time warp" fires, then undo it and the old order comes back.
 

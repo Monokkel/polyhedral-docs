@@ -111,11 +111,23 @@ Reuse is by the registry, not by inheritance. When one Token needs a signature l
     };
     ```
 
+!!! warning "A Blueprint handler must be referenced by a Token, or it dies when you package"
+    The global registry is built by scanning handler classes that are *already loaded*. A C++ handler always is. A **Blueprint** handler asset that nothing references is loaded in the editor only when you open it — and never in a cooked build. So a Blueprint handler works perfectly while you are authoring it and **silently never fires in a packaged game**. It is a costly bug precisely because everything looks right until the build.
+
+    The fix is the same one row the override map already gives you: put the Blueprint handler in a Token's **Cue Overrides** map, on every Token base that should get it. That makes the Token class hard-reference the handler, so it is loaded and cooked wherever that Token is. If you want a genuine project-wide default with no per-Token wiring, write that handler in C++.
+
+    The same care applies in the other direction: some cues ship with no handler at all. A game that can end up with an entity the board cannot legally place will see the framework raise a placement cue for it — and with nothing registered to render that cue, the Token just holds its last transform and the player sees a unit that quietly stopped making sense. If your game can produce that situation, author a handler for it.
+
 Ready to write one? Follow [Write a cue handler](../plugins/tokensystem/guides.md#write-a-cue-handler) in the TokenSystem guides.
 
 ## Capabilities: drive a token without knowing its class
 
-A handler must not care whether it is animating a 3D mini or a 2D card. That is what **capabilities** are for: small opt-in interfaces a Token advertises — movable, montage-capable, a numeric stat display, previewable. A handler asks-and-skips. A knockback handler moves anything that is movable and silently no-ops on a Token that isn't. A damage handler plays a reaction on anything montage-capable and animates the number on anything that is a stat display. One handler serves the character mini and the card widget alike, because it talks to the capability, never the class.
+A handler must not care whether it is animating a 3D mini or a 2D card. That is what **capabilities** are for: small opt-in interfaces a Token advertises — movable, *orientable*, montage-capable, a numeric stat display, previewable. A handler asks-and-skips. A knockback handler moves anything that is movable and silently no-ops on a Token that isn't. A damage handler plays a reaction on anything montage-capable and animates the number on anything that is a stat display. One handler serves the character mini and the card widget alike, because it talks to the capability, never the class.
+
+**Orientable** is the clearest small example of the pattern, and worth knowing because facing reads so strongly to a player: a unit that pivots toward its target looks like it *decided* something, while one that snaps to the new angle looks like a bug. You implement one function — turn to this transform, and report done when the motion ends — and the framework plays the facing cue for you when a change turns the Token. A Token that skips the capability is not broken: it is re-snapped to the correct transform and the cue completes at once, so the board stays right and the turn just happens in a single frame. That is the two-tier model again, in miniature — correctness for free, the beat opt-in.
+
+!!! note "Facing carries a position, not just an angle"
+    The facing capability is handed a full transform rather than a bare rotation, because a Token whose pivot is the centroid of a multi-cell footprint *moves* when it rotates. Animate toward the whole transform and both halves land; read only the yaw and a large unit drifts off its cells.
 
 The core Token interface stays deliberately tiny — three lifecycle hooks and nothing else — precisely so it can't grow into a fat base class everything must implement. Everything a handler drives lives in a capability a Token opts into.
 

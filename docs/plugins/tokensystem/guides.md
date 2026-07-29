@@ -91,6 +91,20 @@ token gets sensible behavior for free.
     };
     ```
 
+!!! warning "A Blueprint handler needs a hard reference, or it dies in a cooked build"
+    Step 4 above is not only for signature looks — for a **Blueprint** handler it
+    is the *only* reliable registration route. The global registry scans handler
+    classes that are already loaded, and a Blueprint asset nothing references is
+    loaded in the editor only when you open it. So a Blueprint handler works
+    perfectly while you author it and **silently never fires once the game is
+    packaged**.
+
+    Put the handler in a token's **Cue Overrides** map (that makes the token class
+    hard-reference it, so it is cooked), on every token base that should get the
+    behaviour. If you want a true project-wide default with no per-token wiring,
+    write that handler in C++ — a C++ handler is always loaded and always
+    registers.
+
 !!! warning "Always complete the context"
     Every path through **Handle** must eventually reach **Complete** — either your
     own visual calls it when it finishes, or a capability you delegate to owns it,
@@ -112,6 +126,9 @@ that speaks that capability drives it.
 
     - **Movable** — implement **Move Along Path**; move the token through the
       points and call **Complete** when the motion ends.
+    - **Orientable** — implement **Turn To**; swivel to the target transform and
+      call **Complete** when the motion ends. See
+      [Turn a token to face a direction](#turn-a-token-to-face-a-direction).
     - **Montage Capable** — implement **Play Reaction**; play the montage/flipbook
       for the reaction tag and call **Complete** when it finishes.
     - **Stat Display** — implement **Set Value** (the instant snap) and
@@ -140,6 +157,61 @@ that speaks that capability drives it.
     `Cue.Move` handler walks a character mini and slides a card widget
     identically — each implements **Movable** in its own terms. Keep the token
     interface tiny and put everything a handler drives in a capability.
+
+## Turn a token to face a direction
+
+A unit that pivots to face its target reads as *deciding* something; a unit that
+snaps to the new angle reads as a bug. Facing is a shipped capability, so making
+it animate is one function on your token — nothing to register, and nothing to
+emit.
+
+Implement **Orientable**. When the framework wants the token facing somewhere
+else, it hands you the final transform and a cue context; you animate to it and
+report done.
+
+=== "Blueprint"
+    1. On your token Blueprint, add the **PTk Orientable** interface.
+    2. Implement the **Turn To** event. It gives you a **Target Transform** and a
+       cue context.
+    3. Drive your swivel — a timeline into **Set Actor Transform**, a rotate-to
+       animation, a widget flip — toward that transform.
+    4. When the motion ends, call **Complete** on the cue context. That is the
+       whole contract: one event, then signal completion.
+
+    Nothing else is needed. You do not register the capability and you do not
+    play the facing cue yourself — the framework raises `Cue.Face` when a change
+    turns the token, and the shipped handler routes it to your **Turn To**.
+
+=== "C++"
+    ```cpp
+    // On your token class. Animate to the target, then complete the context.
+    void AMyUnitToken::TurnTo_Implementation(const FTransform& TargetTransform,
+                                             UPTkCueContext* Ctx)
+    {
+        // Drive your own tween/timeline toward TargetTransform...
+        PendingCtx = Ctx;                       // keep it alive until you finish
+        StartSwivelTo(TargetTransform);
+    }
+
+    // ...and when the swivel settles:
+    void AMyUnitToken::OnSwivelFinished()
+    {
+        PendingCtx->Complete();                 // the sequence moves on
+    }
+    ```
+
+!!! tip "Animate the whole transform, not just the yaw"
+    The payload is a full transform rather than a rotation on purpose. A token
+    whose pivot is the centroid of a multi-cell footprint *moves* when it rotates,
+    so a pure turn-in-place can carry a small translation. Drive your tween to the
+    supplied transform and both halves land correctly; read only the rotation and
+    a large unit will drift off its cells.
+
+!!! note "Skipping it is safe — the token snaps instead"
+    A token that does not implement **Orientable** is not broken. The facing cue
+    finds no capability, the registry re-snaps the token to its authoritative
+    transform, and the cue completes immediately. The board stays correct; the
+    turn just happens in one frame. Add the capability when you want the beat.
 
 ## Play a cue yourself
 

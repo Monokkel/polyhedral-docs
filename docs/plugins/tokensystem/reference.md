@@ -59,6 +59,17 @@ static FInstancedStruct MakeTokenClassData(TSubclassOf<UObject> TokenClass);
     which is exactly right for a rules-only entity. Fallbacks are configured on
     `UPTkTokenSettings` (see [Settings](#settings)).
 
+!!! tip "A token can change class mid-match"
+    Resolution is not a one-time decision. When an entity's
+    `Data.Presentation.TokenClass` facet is written, or a tag that matches one of
+    the settings categories is added or removed, the registry **re-resolves** the
+    class and swaps the live token — but only if the resolved class actually
+    differs. That is what makes a polymorph or a transform work: write the new
+    token class as ordinary (undoable) tagged data and the mini on the board is
+    replaced. A change that resolves to the same class touches nothing, so
+    unrelated tag traffic costs no respawns. State restore re-resolves too, so a
+    load or an undo past the transform brings the right token back.
+
 ### Auxiliary presentation channels
 
 An entity may drive more than its primary token — a HUD party-frame row, an open
@@ -221,6 +232,20 @@ thin token gets sensible default behavior for free. To give one token a signatur
 look, you don't subclass — you add a row to that token's `CueOverrides` map
 pointing the tag at a shared handler class.
 
+!!! warning "A Blueprint handler must be referenced by a token's `CueOverrides`"
+    The global registry is built by scanning the class defaults of handler classes
+    that are **already loaded**. A C++ handler always is, so it always registers.
+    A **Blueprint** handler asset that nothing references is loaded in the editor
+    the moment you open it — and not at all in a packaged build. The result is the
+    worst kind of bug: your handler works while you are authoring it and silently
+    never fires once the game is cooked.
+
+    The fix is one row, and it is the only reliable route today: reference the
+    Blueprint handler from a token's **`CueOverrides`** map. The token class then
+    hard-references it, so it is loaded and cooked wherever that token is. If you
+    want a Blueprint handler to behave like a global default, add the row to every
+    token base that should get it — or write that handler in C++ instead.
+
 **Resolution is most-specific-wins.** For a `Cue.TakeDamage.Fire` cue the registry
 walks the tag from most specific to least:
 
@@ -237,19 +262,50 @@ A handler must not care whether it is animating a 3D mini or a 2D card.
 **Capabilities** are small opt-in interfaces a token advertises; a handler
 *asks and skips* — it drives the capability if the token implements it and no-ops
 cleanly if it doesn't. Each is queried with `Implements<...>()` and called through
-`Execute_...`. The five shipped capabilities:
+`Execute_...`. The six shipped capabilities:
 
 | Capability | What a token that implements it can do |
 |---|---|
 | `IPTkMovable` | Travel along a path (`MoveAlongPath`, carrying an `FPTkMovePayload`); report its anchor. A walking mini and a sliding card implement it in their own terms. |
+| `IPTkOrientable` | Turn to face a new orientation over time (`TurnTo`, carrying an `FPTkFacePayload`). The rotation half of a placement change — the sibling of `IPTkMovable`. |
 | `IPTkMontageCapable` | Play a tagged reaction — a montage, flipbook, or timeline — for a reaction tag (`PlayReaction`). |
 | `IPTkStatDisplay` | Show a numeric value and advance it two ways: `SetValue` snaps it (bind / load / undo), `AnimateTo` tweens it `From`→`To` for a live change. |
 | `IPTkPreviewable` | Paint a non-destructive preview overlay (`ShowPredicted` / `ClearPredicted`) — a health bar stays full and paints the band it *would* lose. |
 | `IPTkGhostable` | Render itself as a translucent "ghost" (`MarkAsGhost`) — the look for something a hover what-if predicts but never commits. |
 
-Each capability that animates owns its own completion: `MoveAlongPath`,
+Each capability that animates owns its own completion: `MoveAlongPath`, `TurnTo`,
 `PlayReaction`, and `AnimateTo` all call `Ctx->Complete()` when the motion or tween
 settles, so a sequence waits for the visual to finish.
+
+### Turning to face a direction
+
+`IPTkOrientable` is the capability a token implements to *swivel* rather than
+snap. It has exactly one function, and the shipped `Cue.Face` handler drives it:
+
+```cpp
+// BlueprintNativeEvent — override TurnTo_Implementation in C++, or implement the
+// TurnTo event on a Blueprint token. Async: animate to TargetTransform, then call
+// Ctx->Complete() so whatever is sequenced behind the cue can start.
+void TurnTo(const FTransform& TargetTransform, UPTkCueContext* Ctx);
+```
+
+```cpp
+// The cue payload. A full transform, NOT a bare rotation: rotating a token whose
+// pivot is its footprint centroid also shifts that pivot, so a turn-in-place can
+// carry a small translation with it. Animate to the whole transform.
+struct FPTkFacePayload   // BlueprintType
+{
+    FTransform TargetTransform = FTransform::Identity;
+};
+```
+
+!!! note "A token without the capability still ends up correct"
+    The `Cue.Face` handler asks-and-skips like every other handler. A token that
+    does not implement `IPTkOrientable` is re-snapped to its authoritative
+    transform through the registry and the cue completes immediately — the board
+    is right, it just doesn't tween. Implementing the capability is polish, never
+    correctness. See
+    [Turn a token to face a direction](guides.md#turn-a-token-to-face-a-direction).
 
 !!! note "Which capability wins for a value change"
     A montage flinch ignores the number; a stat display animates it. A damage
@@ -347,13 +403,27 @@ batch, choosing snap-versus-sequence — is the ability system's work, documente
 
 ## The shipped cue handlers
 
-Two example handlers ship registered and ready; they are the global defaults a thin
+Three handlers ship registered and ready; they are the global defaults a thin
 token inherits for free, and each is a worked model for writing your own.
 
 | Handler | Handles | What it does |
 |---|---|---|
 | `UPTkDamageCueHandler` | `Cue.TakeDamage` | Plays a reaction on any token that is `IPTkMontageCapable`, passing the cue intent as the reaction tag. A token without the capability no-ops cleanly. A boss overrides it with a signature flinch via its `CueOverrides` map. |
 | `UPTkMoveCueHandler` | `Cue.Move` | Walks any token that is `IPTkMovable` along the path in the cue's `FPTkMovePayload`. The same handler drives an actor token and a widget token through the shared capability. |
+| `UPTkFaceCueHandler` | `Cue.Face` | Turns any token that is `IPTkOrientable` to the transform in the cue's `FPTkFacePayload`. A token without the capability is re-snapped to its authoritative transform and the cue completes at once. |
+
+!!! warning "Some cues ship with no handler at all — supply your own"
+    The [GridEntity](../gridentity/index.md) plugin raises
+    `Cue.Placement.Unresolvable` on an entity's token when the board cannot give
+    that entity a legal placement (a displacement with nowhere to go). **Nothing
+    ships to render it.** With no handler the framework logs a warning and the
+    token simply holds its last transform — the player sees a unit that quietly
+    stopped making sense.
+
+    A game that can produce that situation should register a handler for the tag:
+    a shake, a red outline, a "no room!" toast. Author it exactly like any other
+    cue handler, and remember the Blueprint-handler rule above — reference it from
+    a token's `CueOverrides` map, or write it in C++.
 
 ## Settings
 
@@ -366,3 +436,6 @@ fallback token classes used when an entity's template carries no
   is designer priority.
 - **`DefaultTokenClass`** — the last-resort class when neither the template nor a
   category match supplies one. Leave it empty to leave unmatched entities headless.
+
+Both pickers are filtered to concrete classes that implement `IPTkTokenInterface`,
+so a class the registry would discard cannot be chosen in the first place.

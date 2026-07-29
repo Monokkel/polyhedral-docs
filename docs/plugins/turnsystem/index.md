@@ -80,8 +80,8 @@ those are your game's. The division of labor:
 | `InitializeTurnTracker` / `AdvanceTurn` / `AdvanceRound` | GameEntity | The turn core: mint the tracker, then advance it as one undo step. Usable with no other plugin. |
 | `FPGeTurnFanOut` | GameEntity | The set of units an advance names, so the turn events reach the right entities' own channels. |
 | `FPTsSchedulerPolicy` | TurnSystem | The open extension point: a pure rule from participants + turn state to who acts next. Subclass it for any ordering. |
-| `FPTsSchedulerPolicy_Igougo` | TurnSystem | The one shipped preset — side-based (sometimes called I-go-you-go). Configure it with an ordered list of side tags. |
-| `UPTsSchedulerSubsystem` | TurnSystem | Participation helpers (`JoinTurnOrder` / `LeaveTurnOrder`), the active policy, and the projected order. A GameInstance subsystem. |
+| `FPTsSchedulerPolicy_Igougo` | TurnSystem | The **only** shipped preset — side-based (sometimes called I-go-you-go). Configure it with an ordered list of side tags. Anything else (initiative, a speed timeline) is a policy you write against the same base type. |
+| `UPTsSchedulerSubsystem` | TurnSystem | Participation helpers (`JoinTurnOrder` / `LeaveTurnOrder`), the active policy, and the projected order. A GameInstance subsystem. Participation follows the schedule entry, so a unit **template** can enrol every unit made from it. |
 | `UPTsTurnFlowDriver` | TurnSystem | The optional match conductor: start the match, advance, and route control between player and AI sides. A constructed object you hold, **not** a subsystem. |
 | `PTsTags` | TurnSystem | The tagged-data keys and the two canonical controller tags (player / AI). |
 

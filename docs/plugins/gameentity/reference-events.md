@@ -211,12 +211,13 @@ just another stat change.
 |---|---|---|
 | `CreateEntity*` | `EntityCreated` | `OnEntityCreated` |
 | `DestroyEntity` | `EntityDestroyed` | `OnEntityDestroyed` |
-| `AddTag` | `TagAdded` | `OnTagChanged` (`bAdded = true`) |
-| `RemoveTag` | `TagRemoved` | `OnTagChanged` (`bAdded = false`) |
+| `AddTag` | `TagAdded` | `OnTagChanged` (`bAdded = true`); *also `TaggedDataChanged` on the catch-all when the tag mirrors a data key that has a value* |
+| `RemoveTag` | `TagRemoved` | `OnTagChanged` (`bAdded = false`); *also `TaggedDataRemoved` when the tag mirrored a data key that had a value* |
 | `SetStat`, `ModifyStat`, `ModifyStats` | `StatChanged` | `OnStatChanged` |
 | `RemoveStat` | `StatRemoved` | *(catch-all only)* |
 | `SetTaggedData` | `TaggedDataChanged` | *(catch-all; also `OnTagChanged` if the mirror tag is new)* |
 | `RemoveTaggedData` | `TaggedDataRemoved` | *(catch-all; also `OnTagChanged` if the mirror tag drops)* |
+| `ShadowTemplateTaggedData` | `TaggedDataRemoved` | *(catch-all; plus `OnTagChanged` for the dropped mirror tag)* |
 | `AddChild` | `ChildAdded` | `OnChildAdded` (plus tag events for the slot tag) |
 | `RemoveChild` | `ChildRemoved` | `OnChildRemoved` (plus tag events for the slot tag) |
 | `SetChildSlot` | `TagRemoved` / `TagAdded` | `OnTagChanged` (old and new slot tag) |
@@ -232,10 +233,15 @@ Notes:
   that triggered it. That recompute is the resolved value you usually bind a
   health bar to. The stat and modifier API is on the
   [Stats & Modifiers page](reference-stats.md).
-- **Tagged data mirrors a tag**, so setting or removing a tagged-data entry can
-  also add or drop the mirrored tag, firing a tag event alongside the tagged-data
-  one. That mirror behaviour is documented under
-  [Tagged data on an entity](reference-entities.md#tagged-data-on-an-entity).
+- **Tagged data mirrors a tag**, and the mirror fires events in *both*
+  directions. Setting or removing a tagged-data entry can add or drop the mirrored
+  tag, firing a tag event alongside the tagged-data one — and adding or removing a
+  tag that mirrors a key some source has a value for fires a **tagged-data** event
+  alongside the tag one. The second direction is what keeps a reactive consumer
+  honest: the mirror tag is what makes a value readable at all, so a value that
+  becomes readable (or stops being) is a real change to react to even though
+  nothing wrote the value itself. That mirror behaviour is documented under
+  [Tagged data](reference-entities.md#tagged-data).
 - A **no-op mutation broadcasts nothing** — adding a tag the entity already has,
   or removing a stat it doesn't have, fires no event.
 

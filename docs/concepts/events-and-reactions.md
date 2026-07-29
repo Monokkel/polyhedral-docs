@@ -59,6 +59,12 @@ A broadcast can resolve immediately and depth-first — the rules that answer it
 
 For the full subscribe-and-broadcast API — channels, order, the payload, and timing — see the [EventSystem reference](../plugins/eventsystem/reference.md#subscribing-to-events).
 
+### One channel hears everything
+
+There is one reserved channel, `Channel.Global`, for the listener that genuinely wants breadth — a combat log, an analytics tap, a debug overlay. Subscribe to it and every broadcast, on every channel, is additionally delivered to you. Subscribing is the whole opt-in: broadcasters do nothing and know nothing about it.
+
+The asymmetry is worth stating plainly, because the name invites the opposite reading. The global channel is a **receive-side mirror, not a send-to-everyone.** A broadcast *addressed to* `Channel.Global` reaches the subscribers of `Channel.Global` and nobody else — exactly like a broadcast on any other channel. If you want an event heard widely, announce it on the channel that describes it and let interested listeners opt in, through the mirror if they like. A listener subscribed to both a specific channel and the global one is still called once per broadcast, not twice.
+
 ## Observers and rules listeners are different populations
 
 This is the most important split on the page, and it is not a naming quibble — the two kinds of listener live in different places and can do different things.
@@ -142,6 +148,22 @@ Within a phase, lower orders run first. When two rules-carrying listeners share 
 
 !!! tip "Order values are the design knob; the tiebreak is only for stability"
     When the sequence of reactions *matters* to your design — this shield resolves before that thorns aura — say so by giving the listeners distinct order values. The entity-age tiebreak exists to make otherwise-equal ties *stable* and replay-safe, not to express intent. Don't lean on "the older unit happens to go first" as a rule; encode the rule in the orders.
+
+!!! warning "Order cannot promote an observer"
+    Order decides sequence, never capability. Giving an ordinary subscription a large negative order does not make it an interrupt — observers are locked out of the pre-commit phase by construction, and a negative value coming from a named order preset is quietly rewritten to zero. Keep your presets at zero or above and read them as a way to sequence *reactions*. A listener that must run pre-commit has to be a rules listener; there is no ordering trick that substitutes.
+
+## Phases: which broadcast you hear
+
+Order is one axis; **phase** is another, and they answer different questions. Order asks *when within one broadcast* a listener runs. Phase asks *which broadcast it hears at all*.
+
+Everything above is the **main** phase — the window with its interrupt, commit, and reaction stages. It is the default everywhere, and a game that never mentions phase behaves exactly as this page describes.
+
+There is one earlier phase, **intent**. It fires before a proposal even exists — before a magnitude has been computed and before the change has a transaction to belong to. It is for the rule that must weigh in on something being *about* to be attempted, and it is the one place a listener may legitimately suspend and wait for an answer ("do you want to counterattack?") before the change is shaped at all. Because phase is part of a subscription's key, the two populations are genuinely separate: an intent-only listener never shows up in a main-phase dispatch, and vice versa.
+
+!!! warning "The intent phase is C++-only, on both ends"
+    Neither Blueprint node exposes a phase: **Subscribe to Event** has no phase pin, and neither does **Broadcast Event**. So a Blueprint game can neither raise an intent-phase broadcast nor listen to one — its subscriptions and broadcasts are always the main phase. If a design needs the intent phase, plan on C++. (The same applies to subscribing as a rules listener rather than an observer: that too is C++ or the entity-carried trigger surface.)
+
+    This is a real boundary, not a temporary gap to design around — check it before you build a mechanic that depends on interrupting *before* a proposal exists.
 
 ## A cascade is one undo step
 
