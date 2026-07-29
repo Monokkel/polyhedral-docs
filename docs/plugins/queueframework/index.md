@@ -13,6 +13,12 @@ finished. The channel never starts the next item until the current one proceeds 
 a sequence of animated steps plays out cleanly instead of all firing on the same
 frame.
 
+!!! note "Ships inside Polyhedral Core"
+    QueueFramework is a **module** of the [PolyhedralCore](../polyhedralcore/index.md)
+    plugin, alongside CommandSystem, TagEvents, and NoiseBasedRandomSeed. You enable
+    `PolyhedralCore` in your `.uplugin` or `.uproject`; from C++ you depend on
+    `QueueFramework` by name in your `.Build.cs`.
+
 !!! note "A sequencing primitive, not a gameplay system"
     QueueFramework knows nothing about entities, commands, or rules — it just runs
     work items in order. It's the plumbing other systems sequence *on*: the event
