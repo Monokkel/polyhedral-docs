@@ -97,6 +97,42 @@ reads:
     Neighbors** and reachability work exactly the same, because both are questions about
     the grid's connections, not about coordinates.
 
+!!! warning "**Get Neighbors** is on the grid; **Get Lattice Neighbors** is on the topology"
+    They read alike and answer different questions. **Get Neighbors** on the *grid*
+    reads the connection list — "what can I actually reach from here" — and is the
+    one you want for pathing, reachability, and movement. **Get Lattice Neighbors**
+    on the *topology* returns whatever cell sits at each adjacent coordinate, without
+    consulting a single connection — right for generation, outlines, and terrain
+    conforming. They agree on a freshly baked board and diverge the moment a
+    connection is severed at runtime.
+
+## Change the board at runtime
+
+A board that gets dug, blown open, or built up during play is a different job from
+baking one. Do **not** re-run **Generate Grid** and do not call the raw add/remove
+calls: neither undoes, and a regenerate renumbers every cell handle out from under
+your units.
+
+Submit a structural **command** instead. Every edit — add or remove a cell, add or
+remove a connection, cell and connection tags, heights, cost overrides — has a
+command in the [GridCommands](../gridcommands/index.md) plugin, applied through the
+same command stack as everything else, so the change undoes, saves, and replays with
+the action that caused it.
+
+```cpp
+// Dig one cell into the main board. See the GridCommands guides for the full
+// sequence — resolving the stack, and grouping a whole brush stroke into one undo unit.
+FPGcCmd_AddNode Add;
+Add.GridId    = NAME_None;          // the world's main board
+Add.bHasCoord = true;
+Add.Coord     = FIntVector(4, 0, 0);
+UPGcGridCommandLibrary::SubmitGridCommand(this, FInstancedStruct::Make(Add));
+```
+
+Full recipes — brush strokes, registering a second board, offering a board-authoring
+button, and reacting to the change — are in the
+[GridCommands guides](../gridcommands/guides.md).
+
 ## Compute a unit's reachable set
 
 A move preview is a **reachability** query: flood outward from the unit's cell,

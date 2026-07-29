@@ -259,6 +259,18 @@ enum class EGridPatternBoolOp : uint8
 Generation is two calls on `UGridGraph`: propose cells from a pattern, then bake the
 level into them.
 
+!!! warning "Generation is bake time only"
+    `GenerateGridFromPattern` and `GenerateGridFromCoords` **clear the board and
+    renumber every handle**. That is exactly what you want for initial generation
+    and an editor re-bake, and it is destructive on a live board: every handle
+    held anywhere else — unit placements, saved selections, the undo history —
+    silently starts meaning a different cell. Never call them during play.
+
+    The runtime equivalents are a [re-conform](#re-conforming-at-runtime), which
+    is a coordinate diff that keeps surviving cells' handles, and the
+    [GridCommands](../gridcommands/index.md) plugin for individual, undoable
+    structural edits.
+
 ```cpp
 // 1. Clear the grid and rebuild its node set from a resolved pattern, anchored at Anchor.
 //    An empty or invalid pattern yields an empty grid.
@@ -390,31 +402,55 @@ diagnostics and tests.
 
 The bake is authoritative, but occasionally the world changes at runtime — a wall falls,
 terrain deforms — and the serialized grid needs to catch up. Two entry points on
-`UGridGraph` re-run the conform against the current geometry; both are the exception, not
-the norm.
+`UGridGraph` re-run the conform against the current geometry.
 
 ```cpp
-// HANDLE-STABLE (the default). Refresh heights and connections over the existing cells.
-// Never changes which cells exist and never touches the occupancy index — so anything
-// keyed to node handles stays valid. Use when a wall fell but the floor plan is unchanged.
+// HANDLE-STABLE (the cheap one). Refresh heights and connections over the existing cells.
+// Never changes which cells exist — so anything keyed to node handles stays valid. Use
+// when a wall fell but the floor plan is unchanged. Broadcasts OnGridRebuilt.
 FTerrainConformResult ReconformHandleStable(const TArray<FGridNodeHandle>& Handles,
                                             const FTerrainConformSettings& Settings,
                                             UObject* WorldContextOverride = nullptr);
 
-// FULL-REBUILD (structural). Regenerate from BaseCoords — cells may appear or vanish —
-// then re-snap the occupancy index onto the surviving nodes. The result's
-// OccupantsResnapped reports how many pieces were moved or dropped. Use when the set of
-// standable cells itself changed.
+// FULL (structural). Cells may appear or vanish. Conforms a throwaway copy to get the
+// candidate board, diffs it against the live board BY COORDINATE, and applies the
+// difference incrementally: surviving coordinates KEEP THEIR HANDLES. Broadcasts one
+// structural delta rather than OnGridRebuilt. Use when the set of standable cells changed.
 FTerrainConformResult ReconformFullRebuild(const TSet<FIntVector>& BaseCoords,
                                            const FTerrainConformSettings& Settings,
                                            UObject* WorldContextOverride = nullptr);
 ```
 
+The full path is a **diff, not a rebuild**, and that is the important thing about it: a
+cell that survives is the same cell afterwards, with the same handle, so whatever was
+standing on it is untouched by construction. Only genuinely added, removed, and changed
+cells produce any change at all, and they are reported through the
+[structural-change notification](reference-graph.md#the-structural-change-notification) for
+occupancy and visualizers to reconcile against. A unit standing on a cell the re-conform
+removed is *reported* as displaced, never silently relocated — the framework does not
+decide where a displaced unit goes. See
+[When the board itself changes](../../concepts/grids-and-occupancy.md#when-the-board-itself-changes).
+
+!!! tip "The undoable door is **Submit Reconform**"
+    Called directly, both functions mutate the board outside the command stack, so they
+    do not undo. The [GridCommands](../gridcommands/index.md) plugin exposes the same
+    full re-conform as a command-routed **Submit Reconform**: the difference is applied
+    as one transaction of structural commands — one undo unit — and the call is refused
+    cleanly, mutating nothing and leaving no undo entry, at moments when a wholesale
+    board change would be unsafe. Ask **Is Board Authoring Allowed** before offering it
+    in a UI.
+
 Both refuse to run — mutating nothing, reporting `bRefusedConformGuard` — while a
-conform-unsafe read of the graph is in progress, so a re-conform can never tear the board
-out from under a query. The component also exposes a **Reconform** button that re-runs the
-conform over the current cells after a level tweak has drifted the bake; a stale bake is
-flagged by a validation warning on the component.
+conform-unsafe operation is in progress, so a re-conform can never tear the board out from
+under a query or an action mid-resolution. The component also exposes a **Reconform**
+button that re-runs the conform over the current cells after a level tweak has drifted the
+bake; a stale bake is flagged by a validation warning on the component.
+
+!!! note "`OccupantsResnapped` is always zero now"
+    `FTerrainConformResult` still carries the field, but the re-snap-by-coordinate pass
+    it used to count no longer exists and nothing sets it. Handle stability made it
+    unnecessary: survivors' occupants never move, and a removed cell's occupants drop out
+    through the structural-change notification instead.
 
 ## Boundary outlines and curves
 

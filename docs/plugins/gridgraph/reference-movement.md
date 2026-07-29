@@ -173,7 +173,7 @@ The shipped modifiers:
 | Modifier | Effect |
 |---|---|
 | `FGridCostModifier_UniformCost` | Adds a flat surcharge to every step — a movement tax on top of the source's base cost. Never blocks. |
-| `FGridCostModifier_OrthoDiagonal` | Multiplies a step by an orthogonal or diagonal factor from its coordinates. Defaults are the drift-free `10 / 14` pair, so a straight step stays `10` and a diagonal becomes `14`. Never blocks. |
+| `FGridCostModifier_OrthoDiagonal` | Multiplies a step by a cardinal or diagonal factor, classified through the **topology's own lattice directions**. Defaults are the drift-free `10 / 14` pair, so a straight step stays `10` and a diagonal becomes `14`. Never blocks. |
 | `FGridCostModifier_TagBased` | Adds a surcharge per matching tag on the destination cell or the traversed connection, and **blocks** the step if either carries a blocking tag. Reads tags live through the board view. |
 | `FGridCostModifier_FactionBlock` | The default relational gate: blocks a step into a cell held by an occupant of a **different faction**. Occupant-aware but not entity-aware — it reads occupant tags through the board view. Its one knob is which tag namespace the factions live under; replace it with your own modifier for a different rule. |
 | `FGridCostModifier_EdgeAttunementGate` | Blocks a special/teleporter connection unless the mover's snapshot carries the matching attunement tag. Put it in the default profile; capable units opt in by carrying the tag. |
@@ -190,6 +190,20 @@ FGridCostModifier_FactionBlock Block;
 Block.FactionRoot = TAG_Faction;        // children of this tag are the factions
 Profile.CostModifiers.Add(TInstancedStruct<FGridCostModifier>::Make(Block));
 ```
+
+!!! note "Cardinal and diagonal come from the lattice, and vertical passes through"
+    The diagonal modifier asks the topology to classify each step against its own
+    neighbour directions, rather than counting how many coordinate axes the step
+    changes. The two answers differ on a hex: all six of a hex's sides are
+    cardinal and equidistant, yet two of them move on both axes, so an
+    axis-counting rule would charge those two the diagonal multiplier for no
+    reason. Ask a topology, and a hex simply has no diagonals.
+
+    A **purely vertical** step — same column, different level — is passed through
+    unchanged, at ×1.0. It is neither cardinal nor diagonal in the plane, and
+    pricing vertical movement belongs to a cost modifier of your own or to the
+    mover's own profile, where you can say what climbing actually costs in your
+    game.
 
 !!! note "Blocking is terminal; cost stays positive"
     Once any modifier blocks a step, that step is dropped and the rest of the list
@@ -320,6 +334,12 @@ can implement it as a stack struct and the query never pulls object lifetime int
 read-only facade. A game built on entities supplies a view backed by the live board
 state, so movement automatically respects the current occupancy — including when a
 preview or AI what-if runs the same search against a temporary copy of the game state.
+
+The board's *structure* — which cells exist and what connects to what — is read
+from the graph itself, live, on every query. Nothing is cached between searches,
+so a tunnel [dug through the command stack](../gridcommands/index.md) one moment
+is walkable in the next query, and rewinds out of the reachable set the moment the
+dig is undone. There is no invalidation step to remember.
 
 ```cpp
 class IGridBoardView
