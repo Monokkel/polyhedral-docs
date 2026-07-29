@@ -60,12 +60,19 @@ Two properties fall out of that and shape everything you do here:
   caches stay in sync by reacting instead of polling.
 - **Save and replay.** Serialize the whole game state to a save, or record the
   command timeline and replay it step by step.
+- **Room for state that isn't an entity.** A system with its own authoritative
+  substrate — a board's cell graph, a deck's shuffle state — registers a named
+  **state slice** and joins the same single state hash and the same save file,
+  instead of maintaining a parallel save path. A C++ extension point; see
+  [Extending the state hash and the save file](reference-commands.md#extending-the-state-hash-and-the-save-file).
 
 ## When to reach for GameEntity
 
-Reach for [TaggedData](../taggeddata/index.md) on its own when you only need
-convenient typed storage on an actor or object — a bit of presentation state, some
-editor-time configuration — with no undo and no save.
+[TaggedData](../taggeddata/index.md) is not an alternative to GameEntity — it is the
+schema and typed-pin layer that GameEntity's tagged data is described by. There is no
+separate object-side store to reach for instead: if a value matters to your rules, it
+belongs on an entity. For convenient non-authoritative state on an actor — a bit of
+presentation bookkeeping, some editor-time configuration — use an ordinary property.
 
 Reach for GameEntity when you want the whole stack: authoritative game state that
 undoes and saves, stats with modifiers, a hierarchy of units and items, and a
@@ -79,7 +86,8 @@ belongs on an entity, not on an actor.
 | **Entities & templates** | The game-state subsystem, entity references, creation from rows/templates/registry, hierarchy and slots, queries, and entity-owned tagged data. | [Entities reference](reference-entities.md) |
 | **Stats & modifiers** | Base vs. current stats, flat/percent/formula modifiers, granted modifiers, stat batches, and breakdowns. | [Stats reference](reference-stats.md) |
 | **Change events** | The change-event delegates, the change record payload, and the mutation-to-event matrix reactive code subscribes to. | [Events reference](reference-events.md) |
-| **Commands & replay** | The built-in command-driven mutators, and recording and playing back the command timeline. | [Commands & replay reference](reference-commands.md) |
+| **Commands & replay** | The built-in command-driven mutators, recording and playing back the command timeline, and the C++ seam for folding your own state into the state hash and the save. | [Commands & replay reference](reference-commands.md) |
+| **Reaction windows** | The windowed stat and tag changes, and what each variant reports about whether a change committed, was vetoed, or is still waiting. | [Stats reference](reference-stats.md#windowed-stat-and-tag-changes) |
 
 ## Where to go next
 

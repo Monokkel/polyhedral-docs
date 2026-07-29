@@ -5,229 +5,199 @@ covers one area with clean signatures and short usage notes; for step-by-step
 recipes see the [Guides](guides.md), and for the model see
 [Tagged Data](../../concepts/tagged-data.md).
 
-Public types carry the `PTa` prefix (with one legacy exception, `ETaggedDataResult`,
-noted below). Signatures below are hand-written to show the shape of each API;
-they are illustrative, not source excerpts.
+All public types carry the `PTa` prefix. Signatures below are hand-written to
+show the shape of each API; they are illustrative, not source excerpts.
 
-## Interface
-
-`IPTaTaggedDataInterface` is implemented by any object that stores its own tagged
-data. All methods are Blueprint-native events, so from C++ you call them through
-the generated `Execute_` wrappers (for example
-`IPTaTaggedDataInterface::Execute_GetTaggedData(Object, Tag, OutData)`), which
-works whether the interface is implemented in C++ or in Blueprint.
-
-```cpp
-// Get the struct stored under Tag. Returns true if found.
-bool GetTaggedData(const FGameplayTag& Tag, FInstancedStruct& OutData) const;
-
-// Add or replace the struct stored under Tag. Returns true on success.
-bool SetTaggedData(const FGameplayTag& Tag, const FInstancedStruct& InData);
-
-// Remove the entry for Tag. Returns true if something was removed.
-bool RemoveTaggedData(const FGameplayTag& Tag);
-
-// True if an entry exists for Tag.
-bool HasTaggedData(const FGameplayTag& Tag) const;
-
-// Copy every entry into OutData.
-void GetAllTaggedData(TMap<FGameplayTag, FInstancedStruct>& OutData) const;
-
-// Replace the whole store at once.
-void SetAllTaggedData(const TMap<FGameplayTag, FInstancedStruct>& InData);
-```
-
-!!! tip "Prefer the function library for callers"
-    You rarely call the interface directly. The [function library](#function-library)
-    resolves the right provider for any target and calls these methods for you.
-    Implement the interface when you're building a *store*; call the library when
-    you're a *consumer*.
-
-## Component
-
-`UPTaTaggedDataComponent` is a drop-in actor component that implements
-`IPTaTaggedDataInterface` with a backing `TMap<FGameplayTag, FInstancedStruct>`.
-It's marked as a spawnable component, so you can add it to any actor in the editor
-or at runtime. Its map is editable in the details panel, letting you author
-tagged data directly on a placed actor.
-
-Beyond the interface methods, it exposes direct map access for C++:
-
-```cpp
-// Read-only view of the backing map.
-const TMap<FGameplayTag, FInstancedStruct>& GetTaggedDataMap() const;
-
-// Mutable access when you need to edit the map in bulk.
-TMap<FGameplayTag, FInstancedStruct>& GetMutableTaggedDataMap();
-```
-
-!!! note "Created on demand"
-    You don't have to add the component by hand. When you set data through the
-    function library with `bCreateComponentOnActorIfMissing = true` and the actor
-    has no store yet, the library adds one for you at runtime.
-
-## Function library
-
-`UPTaTaggedDataFunctionLibrary` is the main static API — the one most consumers
-use. Every function takes a `Target` object and resolves the tagged-data provider
-in a fixed order:
-
-1. If `Target` implements `IPTaTaggedDataInterface`, use `Target` itself.
-2. Otherwise, if `Target` is an actor, search its components for one that does.
-3. On a set, optionally create a `UPTaTaggedDataComponent` on the actor if none
-   was found.
-
-In Blueprint, `Target` defaults to `self`, and the tag pins are restricted to the
-`Data.*` namespace.
-
-```cpp
-// Exec-style get: Result is a Success/Failure exec branch in Blueprint.
-static void GetTaggedData(UObject* Target, const FGameplayTag& Tag,
-    ETaggedDataResult& Result, FInstancedStruct& OutData);
-
-// Exec-style set. When bCreateComponentOnActorIfMissing is true and Target is an
-// actor with no store, a component is created for it.
-static void SetTaggedData(UObject* Target, const FGameplayTag& Tag,
-    const FInstancedStruct& InData, ETaggedDataResult& Result,
-    bool bCreateComponentOnActorIfMissing = false);
-
-// Remove the entry for Tag; Result reports Success/Failure.
-static void RemoveTaggedData(UObject* Target, const FGameplayTag& Tag,
-    ETaggedDataResult& Result);
-
-// Pure check for the presence of an entry.
-static bool HasTaggedData(UObject* Target, const FGameplayTag& Tag);
-
-// Copy every entry on the target's provider into OutData.
-static void GetAllTaggedData(UObject* Target,
-    TMap<FGameplayTag, FInstancedStruct>& OutData);
-
-// Replace the target provider's entire store.
-static void SetAllTaggedData(UObject* Target,
-    const TMap<FGameplayTag, FInstancedStruct>& InData);
-
-// Simple bool-returning get — no exec branch. Returns true if found.
-static bool TryGetTaggedData(UObject* Target, const FGameplayTag& Tag,
-    FInstancedStruct& OutData);
-
-// Simple bool-returning set. Returns true on success.
-static bool TrySetTaggedData(UObject* Target, const FGameplayTag& Tag,
-    const FInstancedStruct& InData, bool bCreateComponentOnActorIfMissing = false);
-```
-
-**`ETaggedDataResult`** is the result enum used by the exec-style functions; in
-Blueprint it drives the Success/Failure exec pins.
-
-```cpp
-enum class ETaggedDataResult : uint8
-{
-    Success,
-    Failure,
-};
-```
-
-```cpp
-// Typical C++ usage: pack a struct, set it, read it back.
-FInstancedStruct Data = FInstancedStruct::Make(FPTaInt64{ 42 });
-UPTaTaggedDataFunctionLibrary::TrySetTaggedData(Actor, CountTag, Data,
-    /*bCreateComponentOnActorIfMissing=*/ true);
-
-FInstancedStruct Out;
-if (UPTaTaggedDataFunctionLibrary::TryGetTaggedData(Actor, CountTag, Out))
-{
-    const int64 Count = Out.Get<FPTaInt64>().Value;
-}
-```
-
-!!! warning "Standalone storage has no undo"
-    These functions operate on actor/object storage, which is not undoable,
-    saved, or replayed. For authoritative game state, write through an entity
-    instead — see [Read and write tagged data on entities](guides.md#read-and-write-tagged-data-on-entities).
+!!! note "This plugin describes tagged data; it does not store it"
+    TaggedData owns the schema, the primitive wrappers, and the typed-pin
+    machinery. The read/write API lives on GameEntity's game-state subsystem —
+    see [Tagged data on an entity](../gameentity/reference-entities.md#tagged-data).
+    There is no interface, component, or function-library storage API here.
 
 ## Schema
 
-`UPTaTaggedDataSchema` is a data asset (a primary data asset) that maps each
-`Data.*` tag to the struct type stored under it. The schema drives typed
-Blueprint pins and optional set-time validation.
+`UPTaTaggedDataSchema` is a primary data asset that maps each `Data.*` tag to
+the struct type stored under it. It is your project's data dictionary, and it
+drives both the typed Blueprint pins and the type check on write.
 
 ```cpp
-// Look up the struct type mapped to Tag, or null if the tag isn't in this schema.
+// Look up the struct type mapped to Tag, or null if this schema doesn't map it.
 UScriptStruct* FindStructTypeForTag(const FGameplayTag& Tag) const;
 ```
 
 Its authored properties:
 
-- **`TagFilter`** — an optional namespace filter. When set, it constrains the tag
-  picker for this schema's entries to that namespace.
-- **`Entries`** — the tag-to-struct mappings, an array of
-  `FPTaTaggedDataSchemaEntry`.
+| Property | What it does |
+|---|---|
+| `TagFilter` | An optional namespace filter. When set, it constrains the tag picker for this schema's entries to that namespace. |
+| `Entries` | The tag-to-struct mappings, an array of `FPTaTaggedDataSchemaEntry`. |
 
-**`FPTaTaggedDataSchemaEntry`** is one mapping:
+You register a schema by adding it to the project [settings](#settings). One
+project can have several schema assets, each with its own `TagFilter`, so you
+can split your data dictionary by area.
+
+### `FPTaTaggedDataSchemaEntry`
+
+One mapping. It has exactly three fields.
 
 ```cpp
 struct FPTaTaggedDataSchemaEntry
 {
-    FGameplayTag  Tag;         // a Data.* tag
-    UScriptStruct* StructType; // the struct expected under that tag
+    FGameplayTag   Tag;                // a Data.* tag (leaf tags only in the picker)
+    UScriptStruct* StructType;         // the struct expected under that tag
+    bool           bAllowSubclasses;   // default false — see below
 };
 ```
 
-You register a schema by adding it to the project [settings](#settings). One
-project can have several schema assets, each with its own `TagFilter`, so you can
-split your data dictionary by area.
+| Field | Editor label | Default |
+|---|---|---|
+| `Tag` | **Tag** | — |
+| `StructType` | **Struct Type** | none |
+| `bAllowSubclasses` | **Allow Subclasses** | unticked |
+
+### Allow Subclasses
+
+By default an entry matches **exactly**: a key mapped to `FMyBase` accepts
+`FMyBase` and refuses any subclass. Ticking **Allow Subclasses** switches that
+one tag to base-class matching — and, deliberately, also drops its typed
+Blueprint pin down to a generic `FInstancedStruct` pin.
+
+| | Type check on write | Typed-pin node |
+|---|---|---|
+| Default entry | Exact type identity | A pin of `StructType` |
+| **Allow Subclasses** ticked | The incoming struct must be `StructType` or derive from it | A generic `FInstancedStruct` pin |
+
+!!! warning "Both halves move together on purpose"
+    A base-typed pin cannot honestly represent a subclass value. The typed
+    getter needs an exact type match and would hand you back a
+    default-constructed struct; the typed setter is worse — it writes the base
+    slice back and destroys the subclass value you authored. Relaxing the type
+    check on its own would trade one silent failure for two, so the flag relaxes
+    the check and drops the typed pin in one move.
+
+Tick it for keys whose owning system validates by base class ("any policy struct
+of this family"). Leave it off otherwise — exact matching is what the typed-pin
+guarantee rests on.
 
 ## Schema subsystem
 
-`UPTaTaggedDataSchemaSubsystem` is an engine subsystem that answers "what struct
-type belongs under this tag?" at both runtime and edit time. It consults native
-registrations first (see below) and then the loaded schema assets, loading assets
-lazily on first use.
+`UPTaTaggedDataSchemaSubsystem` is an **engine** subsystem that answers "what
+struct type belongs under this tag?" at both runtime and edit time. It consults
+native registrations first (below), then the schema assets listed in settings,
+in list order. Assets load lazily on first use.
 
 ```cpp
-// Fetch the subsystem.
+// Fetch the subsystem (null-safe; returns nullptr if the engine has none).
 static UPTaTaggedDataSchemaSubsystem* Get();
 
 // Resolve a tag to its struct type across native registrations and asset
 // schemas; null if no source maps it.
 UScriptStruct* FindStructTypeForTag(const FGameplayTag& Tag) const;
 
+// Same lookup, also reporting whether the winning entry is polymorphic.
+UScriptStruct* FindStructTypeForTag(const FGameplayTag& Tag, bool& bOutAllowSubclasses) const;
+
 // True if any schema source is available at all. Lets you distinguish
-// "tag has no mapping" (this is true, the lookup is null) from
-// "no schema loaded yet" (this is false).
+// "this tag has no mapping" (this returns true, the lookup returns null) from
+// "no schema loaded yet" (this returns false).
 bool HasSchemas() const;
 
 // Drop and reload the schema assets listed in project settings.
 void ReloadSchemas();
 ```
 
-!!! note "Advanced: native schema registration"
-    If you ship your own C++ module, you can register the tag-to-struct pairings
-    it owns from module startup instead of hand-authoring them into a schema
-    asset. Native registrations are consulted before asset schemas, and the first
-    registration to claim a tag keeps it (a later duplicate is ignored and
-    logged). Pair a registration in startup with its removal in shutdown, keyed
-    by a fragment id you choose.
+`ReloadSchemas` runs at engine start, lazily on the first lookup, and again
+whenever you edit the schema list in Project Settings — you rarely call it
+yourself.
 
-    ```cpp
-    static void RegisterNativeSchemaFragment(
-        FName FragmentId, const TArray<FPTaTaggedDataSchemaEntry>& Entries);
-    static void UnregisterNativeSchemaFragment(FName FragmentId);
+!!! note "C++ only, except one"
+    `ReloadSchemas` is Blueprint-callable. `Get`, `FindStructTypeForTag`, and
+    `HasSchemas` are C++ only, as are the native-fragment functions and the
+    write-verdict helper below.
 
-    // Resolve against native registrations only, and a diagnostics count.
-    static UScriptStruct* FindNativeStructTypeForTag(const FGameplayTag& Tag);
-    static int32 GetNativeSchemaFragmentTagCount();
-    ```
+!!! tip "Console command"
+    `PTa.ReloadSchemas` reloads the schema **assets** from the console without
+    restarting the editor — handy after editing a schema by hand. Native
+    registrations are unaffected; they are owned by module startup.
+
+### The write verdict
+
+One function decides whether a struct type is acceptable for a tag, and every
+gate in the framework calls it. Call it yourself if you validate a tagged-data
+write before submitting it.
+
+```cpp
+// True if IncomingType may be stored under Tag. On a false return,
+// *OutExpectedType names the type the schema expects (never null).
+static bool PassesSchemaOnSet(const FGameplayTag& Tag, const UScriptStruct* IncomingType,
+                              const UScriptStruct** OutExpectedType = nullptr);
+```
+
+Its answers, in order:
+
+1. **True** if enforcement is off, or no schema subsystem exists.
+2. **True** if the tag has no schema mapping — the schema is a partial
+   description of your `Data.*` space, not a whitelist.
+3. **True** if the type matches exactly, or (for an **Allow Subclasses** entry)
+   derives from the expected type.
+4. **False** otherwise.
+
+Two things to know when you call it:
+
+- It takes a **type**, not a value, so a caller who hasn't built an
+  `FInstancedStruct` yet can check first and skip the allocation.
+- It **logs nothing**. Reporting a refusal is the caller's job.
+- It does **not** check the `Data.*` namespace rule. That check lives on the
+  entity write path — see
+  [the write gate](../gameentity/reference-entities.md#the-write-gate).
+
+### Native schema registration
+
+If you ship your own C++ module, you can register the tag-to-struct pairings it
+**owns** from module startup instead of asking every game author to transcribe
+them into a schema asset. Several of the framework's own plugins do exactly this
+for their `Data.*` keys.
+
+```cpp
+// In StartupModule — the entries this module owns.
+static void RegisterNativeSchemaFragment(
+    FName FragmentId, const TArray<FPTaTaggedDataSchemaEntry>& Entries);
+
+// In ShutdownModule — always pair it.
+static void UnregisterNativeSchemaFragment(FName FragmentId);
+
+// Resolve against native registrations only, plus a diagnostics count.
+static UScriptStruct* FindNativeStructTypeForTag(const FGameplayTag& Tag);
+static UScriptStruct* FindNativeStructTypeForTag(const FGameplayTag& Tag, bool& bOutAllowSubclasses);
+static int32 GetNativeSchemaFragmentTagCount();
+```
+
+The registry is process-wide and consulted **before** asset schemas.
+**First registration wins**: a later fragment claiming a tag another fragment
+already owns is ignored and logged as a warning at load. Re-registering the same
+fragment with identical entries is silent. Entries missing a tag or a struct type
+are skipped with a warning.
 
 ## Settings
 
 `UPTaTaggedDataSettings` is a developer-settings object, surfaced at
-**Project Settings → Plugins → Tagged Data** and saved to project config.
+**Project Settings → Plugins → Tagged Data**.
 
-- **`SchemaAssets`** — the list of active schema assets (soft references). Each
-  can carry its own `TagFilter`.
-- **`bEnforceSchemaOnSet`** — when true (the default), setting a struct whose type
-  doesn't match the schema for its tag is rejected and logged instead of stored.
-  Tags with no schema mapping are always allowed.
+| Setting | Editor label | Default |
+|---|---|---|
+| `SchemaAssets` | **Schema Assets** — the active schema assets, as soft references | empty |
+| `bEnforceSchemaOnSet` | **Enforce Schema On Set** — reject a write whose struct type doesn't match the schema entry for its tag | on |
+
+!!! note "It saves to its own config file"
+    These settings live in **`Config/DefaultTaggedData.ini`**, not
+    `DefaultGame.ini`. Edit them through Project Settings and they travel with
+    the project.
+
+Tags with no schema mapping are never blocked by **Enforce Schema On Set**, so
+you can enforce types on your designed keys while leaving room for ad-hoc ones.
+The `Data.*` namespace rule is a separate check and is **not** governed by this
+toggle — see
+[the write gate](../gameentity/reference-entities.md#the-write-gate).
 
 ## Primitive wrappers
 
@@ -238,8 +208,8 @@ single `Value` field (except `FPTaEnumValue`, noted below).
 | Wrapper struct | Wrapped type |
 |---|---|
 | `FPTaBool` | `bool` |
-| `FPTaInt64` | `int64` (use for whole numbers) |
-| `FPTaDouble` | `double` (use for floating-point) |
+| `FPTaInt64` | `int64` — use for all whole numbers |
+| `FPTaDouble` | `double` — use for all floating-point |
 | `FPTaName` | `FName` |
 | `FPTaString` | `FString` |
 | `FPTaText` | `FText` |
@@ -250,52 +220,94 @@ single `Value` field (except `FPTaEnumValue`, noted below).
 | `FPTaSoftClassPath` | `FSoftClassPath` |
 | `FPTaTransform` | `FTransform` |
 
-There is also **`FPTaTaggedDataEntry`**, a `{ FGameplayTag Tag; FInstancedStruct
-Value; }` pair. It's handy when you want to author tagged data as an array of
-entries rather than a map in the details panel.
+!!! warning "There is no `FPTaInt32`, `FPTaFloat`, or `FPTaVector`"
+    Integers are 64-bit only (`FPTaInt64`) and floating-point is double only
+    (`FPTaDouble`). Reaching for a 32-bit wrapper that doesn't exist is the usual
+    first stumble. For a vector, author your own struct — or store an
+    `FPTaTransform` if that's what you actually mean.
+
+There is also **`FPTaTaggedDataEntry`**, which is a pair rather than a wrapper:
+
+```cpp
+struct FPTaTaggedDataEntry
+{
+    FGameplayTag     Tag;    // restricted to Data.*, leaf tags only
+    FInstancedStruct Value;
+};
+```
+
+It's how tagged data is authored as an **array of entries** in the details panel
+— entity data-table rows use it for their **Manual Tagged Data** list.
 
 ```cpp
 // Wrapping and unwrapping a single value.
 FInstancedStruct Packed = FInstancedStruct::Make(FPTaDouble{ 2.5 });
-// ... store Packed, later read it back ...
+// ... store Packed on an entity, later read it back ...
 const double Speed = Packed.Get<FPTaDouble>().Value;
 ```
 
-## Typed Blueprint nodes
+## Typed Blueprint pins
 
-The editor module adds custom Blueprint nodes that read the schema at edit time
-to give you a **real typed struct pin** instead of a generic container. They come
-in Get and Set forms, pure and exec, plus an Expanded variant that breaks the
-struct into per-field pins. All of them target any object through the function
-library, and their tag pins are restricted to the `Data.*` namespace.
+The editor module owns the **shared machinery** behind every typed tagged-data
+node in the framework: literal-tag resolution, the schema-to-struct lookup, the
+pin retyping, and the pack/unpack conversion each node expands into.
 
-Common behaviour across every node:
+!!! note "TaggedData ships no tagged-data node of its own"
+    The nodes you actually place in a graph belong to GameEntity, because that's
+    where tagged data is stored. They are **Get Entity Tagged Data (Typed)**,
+    **Get Entity Tagged Data (Typed, Exec)** and **Set Entity Tagged Data
+    (Typed)**, all under the **GameEntity | TaggedData** palette category —
+    documented in the
+    [GameEntity reference](../gameentity/reference-entities.md#the-typed-blueprint-nodes).
 
-- When the **Tag** is a literal mapped in the schema, the struct pin takes that
-  concrete type.
-- When the tag is dynamic, unmapped, or the schema isn't loaded, the pin falls
-  back to a generic struct container (`FInstancedStruct`) — the node still works.
-- They never synchronously load assets while you edit the graph, so they're safe
-  during Blueprint compilation.
+Behaviour every typed-pin node inherits from this plugin:
 
-| Node | Form | What it gives you |
-|---|---|---|
-| **Get Tagged Data (Typed)** | Pure | A typed struct output plus a **Found** bool. Compact node. |
-| **Get Tagged Data (Typed, Exec)** | Exec | A typed struct output with **Success** / **Failure** exec branches. |
-| **Set Tagged Data (Typed)** | Exec | A typed struct input, a **Create Component On Actor If Missing** option, and a **Success** output. |
-| **Get Tagged Data (Expanded)** | Pure | One output pin per field of the mapped struct, plus a **Found** bool — no break node needed. |
-| **Get Tagged Data (Expanded, Exec)** | Exec | Per-field output pins with **Success** / **Failure** exec branches. |
-| **Set Tagged Data (Expanded)** | Exec | One input pin per field of the mapped struct, a create-on-demand option, and a **Success** output. |
+- When the **Tag** pin holds a literal that the schema maps, the **Data** pin
+  takes that concrete struct type.
+- When the tag is dynamic, unmapped, marked **Allow Subclasses**, or the schema
+  hasn't loaded yet, the pin falls back to a generic `FInstancedStruct` — the
+  node still works.
+- The **Tag** pin is filtered to the `Data.*` namespace.
+- Nodes never synchronously load assets while you edit or compile a graph, so a
+  schema that isn't in memory can never stall or fail a Blueprint compile. An
+  unresolved pin re-resolves once the schema is available.
+- The node's title compacts to the tag with its leading `Data.` trimmed, so a
+  graph full of them stays readable.
 
-!!! tip "Typed vs Expanded"
-    Use a **Typed** node when you want to pass the whole struct around as one
-    pin. Use an **Expanded** node when you just want to read or write a couple of
-    the struct's fields inline, without a make/break node. Both fall back to the
-    generic container when a tag isn't mapped.
+### Deriving your own typed-pin node
 
-!!! note "These are the standalone nodes"
-    These nodes write actor/object storage through the function library. The
-    entity equivalents — command-driven, undoable — live with GameEntity and are
-    documented in its own section. The read/write shape is the same; the
-    guarantees differ, as covered in
-    [Tagged Data](../../concepts/tagged-data.md).
+`UK2Node_PTaTaggedPinBase` is the abstract base to derive from if you add a
+storage system of your own and want it to offer the same typed pins. It gives
+you the tag pin, the retyping, the reconstruct callbacks, the tag filter, and two
+expansion helpers that spawn the pack/unpack conversion for you; you supply the
+function call your node expands into.
+
+!!! note "C++ only"
+    Deriving a node is a C++ task in an editor (uncooked) module. There is no
+    Blueprint path for authoring Blueprint nodes.
+
+The two wildcard conversion functions those helpers spawn
+(`UnpackInstancedStruct` / `PackStructToInstancedStruct` on
+`UPTaTaggedDataFunctionLibrary`) are marked internal-use-only and **do not
+appear in the Blueprint palette**. They exist as node-expansion targets; you use
+them by placing a typed node, not by calling them.
+
+### There is no "Expanded" node family
+
+Earlier versions shipped an **Expanded** node variant that generated one
+Blueprint pin per member of the mapped struct. It is **gone**, and the entity
+nodes have no equivalent.
+
+To reach a single member today, use an ordinary **Break Struct** after
+**Get Entity Tagged Data (Typed)**, or **Make Struct** before
+**Set Entity Tagged Data (Typed)**. The typed pin gives you the concrete struct
+type, so both nodes resolve their members automatically.
+
+## Related pages
+
+- [Guides](guides.md) — defining a schema, using the wrappers, validating on
+  write, and the entity read/write recipes.
+- [Tagged Data](../../concepts/tagged-data.md) — the model, the guarantees, and
+  the design guidance.
+- [Tagged data on an entity](../gameentity/reference-entities.md#tagged-data) —
+  the storage API this plugin describes.

@@ -250,7 +250,8 @@ command-routed, reading them is free.
 
 ```cpp
 // Add / remove a tag. Each returns false on a no-op (entity missing, or the tag
-// was already present / already absent).
+// was already present / already absent). RemoveTag also refuses — and logs — a
+// tag that currently marks a tagged-data key; see Tagged data below.
 bool AddTag(const FPGeEntityRef& EntityRef, FGameplayTag Tag);
 bool RemoveTag(const FPGeEntityRef& EntityRef, FGameplayTag Tag);
 
@@ -264,42 +265,61 @@ FGameplayTagContainer GetTags(const FPGeEntityRef& EntityRef) const;   // empty 
 Adding and removing a tag each fire a tag-changed event — see the
 [mutation-to-event matrix](reference-events.md#the-mutation-to-event-matrix).
 
-## Tagged data on an entity
+## Tagged data
 
 Each entity can hold arbitrary typed structs keyed by a `Data.*` gameplay tag.
-This is the same tagged-data model the [TaggedData plugin](../taggeddata/index.md)
-defines, applied to entities and routed through commands. See
-[Tagged Data](../../concepts/tagged-data.md) for the concept.
+This subsystem is the **only** place tagged data is stored; the
+[TaggedData plugin](../taggeddata/index.md) supplies the schema that types it and
+the wrappers you store in it, but owns no storage of its own. See
+[Tagged Data](../../concepts/tagged-data.md) for the model.
 
 ```cpp
-// Set / remove a typed value keyed by a Data.* tag. Set overwrites any existing
-// value; Remove returns false if there was nothing to remove.
+// Write a typed value keyed by a Data.* tag. Overwrites any existing value for
+// that key on this entity. Command-routed, so it undoes.
 void SetTaggedData(const FPGeEntityRef& EntityRef, FGameplayTag Tag, const FInstancedStruct& Value);
+
+// Clear this entity's OWN value for a key — reads fall back to the template
+// again. False if there was nothing to clear.
 bool RemoveTaggedData(const FPGeEntityRef& EntityRef, FGameplayTag Tag);
+
+// Make a key ABSENT for this entity even when its template provides one. False
+// if the key was neither overridden nor template-provided.
+bool ShadowTemplateTaggedData(const FPGeEntityRef& EntityRef, FGameplayTag Tag);
 
 // Reads. Get returns an empty struct if absent; both resolve template fallback.
 FInstancedStruct GetTaggedData(const FPGeEntityRef& EntityRef, FGameplayTag Tag) const;
 bool             HasTaggedData(const FPGeEntityRef& EntityRef, FGameplayTag Tag) const;
 ```
 
-Bool-returning helpers on `UPGeGameStateLibrary` back the typed Blueprint nodes:
+All five are Blueprint-exposed under the **GameEntity | TaggedData** category,
+with the tag pins restricted to the `Data.*` namespace.
+
+Two bool-returning statics on **`UPGeGameStateLibrary`** back the typed Blueprint
+nodes, and are the API to reach for when you need a write's verdict:
 
 ```cpp
-// True (and fills OutData) if the entity has data for Tag — from a live override
-// or delegated from its template.
+// True (and fills OutData) if the entity has data for Tag — from its own
+// override or delegated from its template.
 static bool TryGetTaggedData(const UObject* WorldContextObject, const FPGeEntityRef& EntityRef,
                              const FGameplayTag& Tag, FInstancedStruct& OutData);
 
-// True on success.
+// True if the write was accepted and submitted; false if the gate refused it.
 static bool TrySetTaggedData(const UObject* WorldContextObject, const FPGeEntityRef& EntityRef,
                              const FGameplayTag& Tag, const FInstancedStruct& InData);
 ```
 
+!!! warning "`SetTaggedData` returns `void` — a refused write is silent"
+    The subsystem's `SetTaggedData` has no return channel, so a write the
+    [gate](#the-write-gate) refuses is logged as a warning but is invisible to
+    its caller: no command is constructed and nothing lands on the undo stack.
+    When your code needs to *know*, call `UPGeGameStateLibrary::TrySetTaggedData`
+    instead — same gate, `bool` result. (Note the name collision with the retired
+    standalone library; the surviving functions are on `UPGeGameStateLibrary`.)
+
 === "Blueprint"
-    The typed **Get / Set Tagged Data** nodes give you a real typed struct pin
-    for a known `Data.*` key, rather than a raw `Instanced Struct` — the same
-    typed-pin pattern the [TaggedData plugin](../taggeddata/index.md) documents,
-    resolved against the schema at compile time.
+    Use the typed nodes below rather than the raw **Set Tagged Data** function —
+    they give you a real struct pin instead of an `Instanced Struct`, and their
+    **Success** output already carries the gate's verdict.
 
 === "C++"
     ```cpp
@@ -310,12 +330,162 @@ static bool TrySetTaggedData(const UObject* WorldContextObject, const FPGeEntity
     if (const FMyCost* Cost = Data.GetPtr<FMyCost>()) { /* ... */ }
     ```
 
-!!! note "Tagged data mirrors a tag"
-    Setting tagged data under key `Data.X` also gives the entity the `Data.X`
-    **tag**, so `HasTag(Data.X)` and tag queries see it. Removing the data drops
-    that mirrored tag again (unless the entity's template still supplies a value
-    for the key). This keeps "has this data" answerable through the ordinary tag
-    query API.
+### Reads and template fallback
+
+A read resolves in a fixed order:
+
+1. The entity must exist, and must carry the key's **marker tag** — if it
+   doesn't, the read stops here and returns nothing (see
+   [the marker tag](#the-marker-tag)).
+2. The entity's own stored value for the key, if it has one.
+3. Otherwise the value its **template** provides, via the entity's `TemplateId`.
+
+So a hundred goblins can share one authored value and store only their
+differences. `HasTaggedData` follows the same order and answers `true` for a
+template-delegated value.
+
+### Clearing an override versus shadowing the template
+
+Because reads fall back, "remove" is two different operations. Picking the wrong
+one is a real bug, not a style choice.
+
+| Call | Meaning | A read afterwards returns |
+|---|---|---|
+| `RemoveTaggedData` | *Clear my override* | the template's value, if it provides one |
+| `ShadowTemplateTaggedData` | *Absent for me* | nothing — the key reads as missing |
+
+Both are command-routed and undo cleanly. Reach for the first when you are
+discarding a per-instance customisation — clearing an overridden footprint
+should restore the template's authored one, not delete the footprint. Reach for
+the second when the key genuinely should not apply to this entity at all.
+
+A shadow is lifted by a later `SetTaggedData` (which writes an override), by
+undo, or by adding the key's marker tag back — the last of which restores
+delegation to the template *without* writing an override.
+
+### The write gate
+
+Every tagged-data write on the entity path is checked before anything is
+submitted. There are **two** checks, and only one of them is optional.
+
+| Check | Toggleable? |
+|---|---|
+| Does the struct type match the schema entry for this tag? | Yes — **Enforce Schema On Set** in [TaggedData settings](../taggeddata/reference.md#settings). |
+| Is the key inside the `Data.*` namespace? | **No.** |
+
+The namespace rule is an invariant rather than a typing preference. Tagged data
+is readable only while its marker tag is present, and tags outside `Data.*` are
+maintained by other systems that have no reason to consult tagged data — slot
+bookkeeping, for instance, strips `Slot.*` tags wholesale. A value keyed outside
+`Data.*` would lose its marker to routine housekeeping and become permanently
+unreadable while still sitting in the save file. So it always applies, even with
+enforcement off. The Blueprint tag pickers already constrain you to `Data.*`;
+this closes the same door for C++.
+
+A refusal logs a warning naming the tag, the entity, and (for a type mismatch)
+both the expected and the supplied struct type.
+
+!!! note "Where the gate sits, and what that exempts"
+    The check runs at the write call, **not** inside the command it submits. Two
+    consequences worth relying on:
+
+    - **Restoring, undoing, redoing, and replaying are exempt.** They re-enter
+      the command's own apply path, never the public write. A value that was
+      legal when you stored it still loads, and still undoes and redoes, after
+      you tighten the schema.
+    - **Registering a template is exempt by design.** Template data is
+      definitional, not entity state.
+
+    The gate also runs **before** the no-op guard and before any transaction is
+    opened, so a refused write never has a half-applied effect.
+
+!!! warning "The no-op guard only sees your own value"
+    `SetTaggedData` short-circuits as a no-op only when the entity already has
+    its **own** stored value equal to the one you're writing. Writing a value
+    that merely equals what the entity currently *reads* from its template is
+    **not** a no-op — it creates an instance override where none existed, which
+    is usually what you want but is a real state change either way.
+
+Seeding tagged data into a create — `CreateEntityFromTemplateWithData`, or a row
+that carries a **Manual Tagged Data** list — runs the same gate over the whole
+map, all-or-nothing: one bad key refuses the entire creation, so there is never a
+half-seeded entity to clean up. Every failing key is logged.
+
+### The marker tag
+
+Setting tagged data under key `Data.X` also gives the entity the `Data.X`
+**tag**, so `HasTag(Data.X)` and ordinary tag queries see it.
+
+That marker is load-bearing, not cosmetic: **it is what makes the value
+readable**. A read with the marker missing returns nothing without even
+consulting the stored value or the template — which is exactly how
+`ShadowTemplateTaggedData` works.
+
+Two consequences for your code:
+
+- **`RemoveTag` refuses a marker tag.** Removing it through the raw tag API
+  would strand the value — stored, unreadable, and serialised that way — and
+  leave stale derived state behind, because consumers reconcile on tagged-data
+  events, not on tag events. The call returns `false` and logs a message naming
+  the route you actually wanted: `RemoveTaggedData` to clear an override, or
+  `ShadowTemplateTaggedData` to make the key absent.
+- **`AddTag` for a marker key fires a tagged-data change.** Adding the tag back
+  for a key some source provides a value for genuinely changes the entity's
+  effective data, so it broadcasts as a tagged-data change rather than only a tag
+  change, and reactive consumers reconcile. Ordinary `Slot.*` / `State.*` tag
+  traffic provides no value, so nothing extra fires.
+
+### The typed Blueprint nodes
+
+Three custom nodes read the schema at edit time and give you a **real typed
+struct pin** instead of a generic `Instanced Struct`. All three sit under the
+**GameEntity | TaggedData** palette category.
+
+| Node | Form | Pins |
+|---|---|---|
+| **Get Entity Tagged Data (Typed)** | Pure | In: **Entity Ref**, **Tag**. Out: **Data** (typed), **Found** (bool). |
+| **Get Entity Tagged Data (Typed, Exec)** | Exec | In: exec, **Entity Ref**, **Tag**. Out: **Success** / **Failure** exec, **Data** (typed). |
+| **Set Entity Tagged Data (Typed)** | Exec | In: exec, **Entity Ref**, **Tag**, **Data** (typed). Out: exec, **Success** (bool). |
+
+Shared behaviour:
+
+- When the **Tag** pin holds a literal the schema maps, the **Data** pin takes
+  that concrete struct type. When the tag is dynamic, unmapped, declared
+  **Allow Subclasses**, or the schema isn't loaded yet, the pin falls back to
+  `FInstancedStruct` and the node still works.
+- The node's title compacts to the tag with its leading `Data.` trimmed, so a
+  graph full of them stays readable.
+- They never synchronously load assets while you edit or compile, so an
+  unloaded schema can never stall or fail a Blueprint compile.
+- The world-context pin is hidden — you don't wire it.
+- The **Get** nodes read with template fallback; **Set** writes through the
+  gated, bool-returning library call, which is where **Success** comes from.
+
+!!! warning "The Data pin must be wired"
+    Once a **Tag** resolves to a concrete schema type, you cannot type a literal
+    into the **Data** pin — a typed struct pin has no inline default. Leaving it
+    unwired fails the Blueprint compile with a message saying exactly that. Feed
+    it a **Make Struct**.
+
+!!! note "No per-member pins"
+    There is no node that expands a struct into one pin per member. Use
+    **Break Struct** after a typed **Get**, or **Make Struct** before a typed
+    **Set** — the typed pin gives them the concrete type automatically.
+
+### Tagged data with a lifetime
+
+A tagged-data write can be given an expiry instead of lasting forever, using the
+same end-condition value the stat modifiers use:
+
+```cpp
+// Write Value under DataTag on Target, expiring when EndCondition triggers.
+bool StampTaggedData(const FPGeEntityRef& Target, FGameplayTag DataTag,
+                     const FInstancedStruct& Value, const FPGeEndCondition& EndCondition);
+```
+
+It runs the same write gate and produces ordinary, undoable, event-firing
+mutations. End conditions are covered under
+[Scopes and lifetimes](#scopes-and-lifetimes).
 
 ### Reserved tag namespaces
 
